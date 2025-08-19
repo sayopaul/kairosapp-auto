@@ -326,10 +326,16 @@ const TradeProposalList: React.FC = () => {
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {stats.map((stat, index) => {
-          console.log('TradeProposalTab: Rendering stat:', { label: stat.label, value: stat.value });
+          console.log("TradeProposalTab: Rendering stat:", {
+            label: stat.label,
+            value: stat.value,
+          });
           const Icon = stat.icon;
           return (
-            <div key={index} className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
+            <div
+              key={index}
+              className="bg-white rounded-xl p-4 shadow-lg border border-gray-100"
+            >
               <div className="flex items-center space-x-3 mb-2">
                 <div className={`p-2 rounded-lg ${stat.color}`}>
                   <Icon className="h-4 w-4" />
@@ -354,7 +360,7 @@ const TradeProposalList: React.FC = () => {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <Filter className="h-5 w-5 text-gray-400" />
             <select
@@ -393,13 +399,14 @@ const TradeProposalList: React.FC = () => {
             <ArrowLeftRight className="h-10 w-10 text-gray-400" />
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            {proposals.length === 0 ? 'No trade proposals yet' : 'No proposals match your filters'}
+            {proposals.length === 0
+              ? "No trade proposals yet"
+              : "No proposals match your filters"}
           </h3>
           <p className="text-gray-600">
-            {proposals.length === 0 
-              ? 'Start trading to see proposals here'
-              : 'Try adjusting your search or filter criteria'
-            }
+            {proposals.length === 0
+              ? "Start trading to see proposals here"
+              : "Try adjusting your search or filter criteria"}
           </p>
         </div>
       ) : (
@@ -407,41 +414,51 @@ const TradeProposalList: React.FC = () => {
           {filteredProposals.map((proposal) => {
             const actualStatus = getLatestStatus(proposal);
             const match = proposal.match;
-            
-            console.log('🎯 Rendering proposal:', {
+
+            console.log("🎯 Rendering proposal:", {
               id: proposal.id,
               status: actualStatus,
               hasMatch: !!match,
               matchData: match,
               user1: match?.user1,
-              user2: match?.user2
+              user2: match?.user2,
             });
-            
+
             // Skip proposals with invalid match data
             if (!match || !match.user1_id || !match.user2_id) {
-              console.warn('Skipping proposal with invalid match data:', proposal.id);
+              console.warn(
+                "Skipping proposal with invalid match data:",
+                proposal.id
+              );
               return null;
             }
-            
+
             // Determine if current user is proposer or recipient
             const isProposer = proposal.proposer_id === user?.id;
             const isRecipient = proposal.recipient_id === user?.id;
-            
+
             // Get other user info with fallbacks
             const otherUser = isProposer ? match?.user2 : match?.user1;
-            const otherUsername = otherUser?.username || 'Unknown User';
-            
+            const otherUsername = otherUser?.username || "Unknown User";
+
             // Determine if this is a bundle trade
-            const isBundle = match?.is_bundle || 
-              (Array.isArray(match?.user1_card_ids) && match.user1_card_ids.length > 1) ||
-              (Array.isArray(match?.user2_card_ids) && match.user2_card_ids.length > 1);
-            
+            const isBundle =
+              match?.is_bundle ||
+              (Array.isArray(match?.user1_card_ids) &&
+                match.user1_card_ids.length > 1) ||
+              (Array.isArray(match?.user2_card_ids) &&
+                match.user2_card_ids.length > 1);
+
             // Get cards with fallbacks
-            const myCards = isProposer ? match?.user1_cards : match?.user2_cards;
-            const theirCards = isProposer ? match?.user2_cards : match?.user1_cards;
+            const myCards = isProposer
+              ? match?.user1_cards
+              : match?.user2_cards;
+            const theirCards = isProposer
+              ? match?.user2_cards
+              : match?.user1_cards;
             const myCard = myCards?.[0];
             const theirCard = theirCards?.[0];
-            
+
             return (
               <div
                 key={proposal.id}
@@ -453,25 +470,35 @@ const TradeProposalList: React.FC = () => {
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
                       <img
-                        src={otherUser?.profile_image_url || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&dpr=2'}
+                        src={
+                          otherUser?.profile_image_url ||
+                          "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&dpr=2"
+                        }
                         alt={otherUsername}
                         className="w-10 h-10 rounded-full object-cover"
                       />
                       <div>
-                        <h3 className="font-semibold text-gray-900">{otherUsername}</h3>
+                        <h3 className="font-semibold text-gray-900">
+                          {otherUsername}
+                        </h3>
                         <p className="text-sm text-gray-600">
-                          {isProposer ? 'You proposed to' : 'Proposed by'} {otherUsername}
+                          {isProposer ? "You proposed to" : "Proposed by"}{" "}
+                          {otherUsername}
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center space-x-3">
                       {isBundle && (
                         <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
                           BUNDLE
                         </span>
                       )}
-                      <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(actualStatus)}`}>
+                      <div
+                        className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(
+                          actualStatus
+                        )}`}
+                      >
                         {getStatusIcon(actualStatus)}
                         <span>{formatStatus(actualStatus)}</span>
                       </div>
@@ -484,17 +511,21 @@ const TradeProposalList: React.FC = () => {
                       {/* Your Cards */}
                       <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                         <h4 className="font-semibold text-blue-900 mb-2">
-                          Your {isBundle ? 'Cards' : 'Card'}
+                          Your {isBundle ? "Cards" : "Card"}
                         </h4>
-                        {isBundle ? renderBundleCards(myCards || []) : renderCardDetails(myCard)}
+                        {isBundle
+                          ? renderBundleCards(myCards || [])
+                          : renderCardDetails(myCard)}
                       </div>
 
                       {/* Their Cards */}
                       <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                         <h4 className="font-semibold text-gray-900 mb-2">
-                          Their {isBundle ? 'Cards' : 'Card'}
+                          Their {isBundle ? "Cards" : "Card"}
                         </h4>
-                        {isBundle ? renderBundleCards(theirCards || []) : renderCardDetails(theirCard)}
+                        {isBundle
+                          ? renderBundleCards(theirCards || [])
+                          : renderCardDetails(theirCard)}
                       </div>
                     </div>
                   ) : (
@@ -502,9 +533,12 @@ const TradeProposalList: React.FC = () => {
                       <div className="flex items-center space-x-2">
                         <Clock className="h-5 w-5 text-yellow-600" />
                         <div>
-                          <h4 className="font-medium text-yellow-900">Match Data Loading</h4>
+                          <h4 className="font-medium text-yellow-900">
+                            Match Data Loading
+                          </h4>
                           <p className="text-sm text-yellow-800">
-                            Trade details are being loaded. Match ID: {proposal.match_id}
+                            Trade details are being loaded. Match ID:{" "}
+                            {proposal.match_id}
                           </p>
                         </div>
                       </div>
@@ -514,11 +548,13 @@ const TradeProposalList: React.FC = () => {
                   {/* Timestamps */}
                   <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
                     <span>
-                      Created: {new Date(proposal.created_at).toLocaleDateString()}
+                      Created:{" "}
+                      {new Date(proposal.created_at).toLocaleDateString()}
                     </span>
                     {proposal.updated_at && (
                       <span>
-                        Updated: {new Date(proposal.updated_at).toLocaleDateString()}
+                        Updated:{" "}
+                        {new Date(proposal.updated_at).toLocaleDateString()}
                       </span>
                     )}
                   </div>
@@ -532,19 +568,19 @@ const TradeProposalList: React.FC = () => {
       <TradeProposalModal
         isOpen={showModal && !!selectedProposal}
         onClose={handleModalClose}
-        matchId={selectedProposal?.match_id || ''}
+        matchId={selectedProposal?.match_id || ""}
         matchScore={selectedProposal?.match?.match_score || 0}
         user1={{
-          id: selectedProposal?.match?.user1_id || '',
-          username: selectedProposal?.match?.user1?.username || 'Unknown',
+          id: selectedProposal?.match?.user1_id || "",
+          username: selectedProposal?.match?.user1?.username || "Unknown",
           profile_image_url: selectedProposal?.match?.user1?.profile_image_url,
-          email: selectedProposal?.match?.user1?.email
+          email: selectedProposal?.match?.user1?.email,
         }}
         user2={{
-          id: selectedProposal?.match?.user2_id || '',
-          username: selectedProposal?.match?.user2?.username || 'Unknown',
+          id: selectedProposal?.match?.user2_id || "",
+          username: selectedProposal?.match?.user2?.username || "Unknown",
           profile_image_url: selectedProposal?.match?.user2?.profile_image_url,
-          email: selectedProposal?.match?.user2?.email
+          email: selectedProposal?.match?.user2?.email,
         }}
         user1Card={selectedProposal?.match?.user1_cards?.[0]}
         user2Card={selectedProposal?.match?.user2_cards?.[0]}
@@ -552,7 +588,34 @@ const TradeProposalList: React.FC = () => {
         user1Cards={selectedProposal?.match?.user1_cards}
         user2Cards={selectedProposal?.match?.user2_cards}
       />
-      
+
+      {/* {showModal && (
+        <TradeProposalModal
+          isOpen={showModal && !!selectedProposal}
+          onClose={handleModalClose}
+          matchId={selectedProposal?.match_id || ""}
+          matchScore={selectedProposal?.match?.match_score || 0}
+          user1={{
+            id: selectedProposal?.match?.user1_id || "",
+            username: selectedProposal?.match?.user1?.username || "Unknown",
+            profile_image_url:
+              selectedProposal?.match?.user1?.profile_image_url,
+            email: selectedProposal?.match?.user1?.email,
+          }}
+          user2={{
+            id: selectedProposal?.match?.user2_id || "",
+            username: selectedProposal?.match?.user2?.username || "Unknown",
+            profile_image_url:
+              selectedProposal?.match?.user2?.profile_image_url,
+            email: selectedProposal?.match?.user2?.email,
+          }}
+          user1Card={selectedProposal?.match?.user1_cards?.[0]}
+          user2Card={selectedProposal?.match?.user2_cards?.[0]}
+          isBundle={selectedProposal?.match?.is_bundle}
+          user1Cards={selectedProposal?.match?.user1_cards}
+          user2Cards={selectedProposal?.match?.user2_cards}
+        />
+      )} */}
     </div>
   );
 };
