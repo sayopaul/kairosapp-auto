@@ -478,54 +478,101 @@ const TradeProposalModal = ({
   ]);
 
   // Handle accepting a trade proposal
-  const handleAccept = useCallback(async () => {
-    if (!existingProposal || !user) return;
+  // const handleAccept = useCallback(async () => {
+  //   if (!existingProposal || !user) return;
 
-    // Validate that we can accept this proposal
-    if (existingProposal.status !== "proposed") {
-      setMessage({
-        type: "error",
-        text: "This trade proposal can no longer be accepted.",
-      });
-      return;
-    }
+  //   // Validate that we can accept this proposal
+  //   if (existingProposal.status !== "proposed") {
+  //     setMessage({
+  //       type: "error",
+  //       text: "This trade proposal can no longer be accepted.",
+  //     });
+  //     return;
+  //   }
 
-    // Ensure the current user is the recipient
-    if (existingProposal.recipient_id !== user.id) {
-      setMessage({
-        type: "error",
-        text: "You are not authorized to accept this trade proposal.",
-      });
-      return;
-    }
+  //   // Ensure the current user is the recipient
+  //   if (existingProposal.recipient_id !== user.id) {
+  //     setMessage({
+  //       type: "error",
+  //       text: "You are not authorized to accept this trade proposal.",
+  //     });
+  //     return;
+  //   }
 
-    try {
-      setIsAccepting(true);
-      setMessage(null);
+  //   try {
+  //     setIsAccepting(true);
+  //     setMessage(null);
 
-      // Update the proposal status to accepted_by_recipient
-      await handleUpdateProposal(existingProposal.id, {
-        status: "accepted_by_recipient",
-        recipient_confirmed: true,
-        updated_at: new Date().toISOString(),
-      });
+  //     // Update the proposal status to accepted_by_recipient
+  //     await handleUpdateProposal(existingProposal.id, {
+  //       status: "accepted_by_recipient",
+  //       recipient_confirmed: true,
+  //       updated_at: new Date().toISOString(),
+  //     });
 
-      setMessage({
-        type: "success",
-        text: "Trade accepted! Waiting for final confirmation.",
-      });
+  //     setMessage({
+  //       type: "success",
+  //       text: "Trade accepted! Waiting for final confirmation.",
+  //     });
 
-      await memoizedRefetchProposal();
-    } catch (error) {
-      console.error("Error accepting trade:", error);
-      setMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Failed to accept trade",
-      });
-    } finally {
-      setIsAccepting(false);
-    }
-  }, [existingProposal, user, handleUpdateProposal, memoizedRefetchProposal]);
+  //     await memoizedRefetchProposal();
+  //   } catch (error) {
+  //     console.error("Error accepting trade:", error);
+  //     setMessage({
+  //       type: "error",
+  //       text: error instanceof Error ? error.message : "Failed to accept trade",
+  //     });
+  //   } finally {
+  //     setIsAccepting(false);
+  //   }
+  // }, [existingProposal, user, handleUpdateProposal, memoizedRefetchProposal]);
+
+  // In TradeProposalModal.tsx, update the handleAccept function:
+const handleAccept = useCallback(async () => {
+  if (!existingProposal || !user) return;
+
+  // Validate that we can accept this proposal
+  if (existingProposal.status !== "proposed") {
+    setMessage({
+      type: "error",
+      text: "This trade proposal can no longer be accepted.",
+    });
+    return;
+  }
+
+  // Ensure the current user is the recipient
+  if (existingProposal.recipient_id !== user.id) {
+    setMessage({
+      type: "error",
+      text: "You are not authorized to accept this trade proposal.",
+    });
+    return;
+  }
+
+  try {
+    setIsAccepting(true);
+    setMessage(null);
+    
+    // Use the acceptProposal function from useTradeProposals
+    await acceptProposal(existingProposal.id);
+    
+    setMessage({
+      type: "success",
+      text: "Trade accepted!",
+    });
+    
+    // Refresh the proposal data
+    await memoizedRefetchProposal();
+  } catch (error) {
+    console.error("Error accepting trade:", error);
+    setMessage({
+      type: "error",
+      text: error instanceof Error ? error.message : "Failed to accept trade",
+    });
+  } finally {
+    setIsAccepting(false);
+  }
+}, [existingProposal, user, acceptProposal, memoizedRefetchProposal]);
 
   // Handle confirming a trade proposal
   const handleConfirm = useCallback(async () => {

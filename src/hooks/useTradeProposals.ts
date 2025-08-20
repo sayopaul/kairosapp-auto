@@ -283,8 +283,6 @@ export function useTradeProposals(userId?: string) {
       console.error('Error updating trade proposal:', err);
       setError(err instanceof Error ? err.message : 'Failed to update trade proposal');
       throw err;
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -504,13 +502,44 @@ export function useTradeProposals(userId?: string) {
       setLoading(true);
       setError(null);
 
-      // First update the status to 'accepted'
+      // First, get the current proposal to check user roles
+      const { data: proposal, error: fetchError } = await supabase
+        .from('trade_proposals')
+        .select('*')
+        .eq('id', proposalId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!proposal) throw new Error('Proposal not found');
+
+      // Get current user ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Determine if current user is the proposer or recipient
+      const isProposer = user.id === proposal.proposer_id;
+      const isRecipient = user.id === proposal.recipient_id;
+
+      if (!isProposer && !isRecipient) {
+        throw new Error('You are not authorized to update this proposal');
+      }
+
+      // Prepare the update object
+      const updateData: any = {
+        updated_at: new Date().toISOString()
+      };
+
+      // Update the appropriate confirmation flag based on user role
+      if (isProposer) {
+        updateData.proposer_confirmed = true;
+      } else if (isRecipient) {
+        updateData.recipient_confirmed = true;
+      }
+
+      // If both parties have confirmed, we'll let the trigger handle the status update
       const { data, error: updateError } = await supabase
         .from('trade_proposals')
-        .update({ 
-          status: 'accepted',
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', proposalId)
         .select()
         .single();
