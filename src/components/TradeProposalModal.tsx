@@ -90,6 +90,7 @@ const TradeProposalModal = ({
   const [existingProposal, setExistingProposal] =
     useState<TradeProposal | null>(null);
   const [isShippingModalOpen, setShippingModalOpen] = useState(false);
+  const [showGetRatesButton, setShowGetRatesButton] = useState(false);
   const [trackingNumber, setTrackingNumber] = useState("");
   const [carrier, setCarrier] = useState("");
   const [labelUrl, setLabelUrl] = useState("");
@@ -282,8 +283,10 @@ const TradeProposalModal = ({
       // Fetch recipient's shipping preferences
       const loadRecipientPrefs = async () => {
         try {
-          const prefs = await fetchRecipientPreferences();
-          if (prefs) setRecipientPrefs(prefs);
+          if (otherUserId) {
+            const prefs = await fetchRecipientPreferences(otherUserId);
+            if (prefs) setRecipientPrefs(prefs);
+          }
         } catch (error) {
           console.error("Error loading recipient preferences:", error);
         }
@@ -291,11 +294,42 @@ const TradeProposalModal = ({
 
       loadRecipientPrefs();
     }
-  }, [user?.id, fetchShippingPreferences, fetchRecipientPreferences]);
+  }, [
+    user?.id,
+    otherUserId,
+    fetchShippingPreferences,
+    fetchRecipientPreferences,
+  ]);
 
   // Determine user roles and other user data
 
   // Update step based on proposal status
+  // useEffect(() => {
+  //   if (!existingProposal || !isOpen) return;
+
+  //   console.log(
+  //     "Updating step based on proposal status:",
+  //     existingProposal.status
+  //   );
+
+  //   if (existingProposal.status === "proposed") {
+  //     setStep(isRecipient ? "accept" : "propose");
+  //   } else if (existingProposal.status === "accepted_by_recipient") {
+  //     setStep(isProposer ? "confirm" : "accept");
+  //   } else if (
+  //     existingProposal.status === "shipping_pending" ||
+  //     existingProposal.status === "shipping_confirmed"
+  //   ) {
+  //     setStep("shipping");
+  //     const method = existingProposal.shipping_method as
+  //       | "mail"
+  //       | "local_meetup"
+  //       | undefined;
+  //     setShippingMethod(method || "mail");
+  //   } else if (existingProposal.status === "completed") {
+  //     setStep("complete");
+  //   }
+  // }, [existingProposal, isRecipient, isProposer, isOpen]);
   useEffect(() => {
     if (!existingProposal || !isOpen) return;
 
@@ -312,7 +346,13 @@ const TradeProposalModal = ({
       existingProposal.status === "shipping_pending" ||
       existingProposal.status === "shipping_confirmed"
     ) {
-      setStep("shipping");
+      // Check if we should be in the create_label step
+      // Don't override the step if showGetRatesButton is true (indicating user is ready to create labels)
+      if (showGetRatesButton) {
+        setStep("create_label");
+      } else {
+        setStep("shipping");
+      }
       const method = existingProposal.shipping_method as
         | "mail"
         | "local_meetup"
@@ -321,7 +361,7 @@ const TradeProposalModal = ({
     } else if (existingProposal.status === "completed") {
       setStep("complete");
     }
-  }, [existingProposal, isRecipient, isProposer, isOpen]);
+  }, [existingProposal, isRecipient, isProposer, isOpen, showGetRatesButton]);
 
   // Fetch shipping preferences on mount
   useEffect(() => {
@@ -383,16 +423,29 @@ const TradeProposalModal = ({
     }
   }, [existingProposal?.id, user?.id]);
 
-  const handleShippingComplete = useCallback(() => {
-    setMessage({
-      type: "success",
-      text: "Shipping label created successfully!",
-    });
-    // Close the shipping modal
-    setShippingModalOpen(false);
-    // You might want to refresh the trade proposal data here
-    // or update the UI to reflect the new shipping status
-  }, []);
+  const handleShippingComplete = useCallback(
+    (
+      trackingNumber: string,
+      carrier: string,
+      labelUrl: string,
+      isProposer: boolean
+    ) => {
+      // Update the tracking information state
+      setTrackingNumber(trackingNumber);
+      setCarrier(carrier);
+      setLabelUrl(labelUrl);
+
+      setMessage({
+        type: "success",
+        text: "Shipping label created successfully!",
+      });
+      // Close the shipping modal
+      setShippingModalOpen(false);
+      // You might want to refresh the trade proposal data here
+      // or update the UI to reflect the new shipping status
+    },
+    []
+  );
 
   // Validate trade proposal data
   const isValidData = useCallback((): boolean => {
@@ -687,10 +740,17 @@ const TradeProposalModal = ({
 
       await handleUpdateProposal(existingProposal.id, updates);
 
+      // Update the step to "create_label"
+      setStep("create_label");
+      // display the button to get rates
+      setShowGetRatesButton(true);
+
       setMessage({
         type: "success",
         text: "Shipping details confirmed!",
       });
+
+      // setStep("create_label");
 
       await memoizedRefetchProposal();
     } catch (error) {
@@ -710,6 +770,23 @@ const TradeProposalModal = ({
     handleUpdateProposal,
     memoizedRefetchProposal,
   ]);
+
+  // Handle Get Rates
+  const handleGetRates = () => {
+    // console.log(step);
+
+    if (existingProposal && existingProposal.shipping_method) {
+      console.log("=== handleGetRates Debug ===");
+      console.log("Step:", step);
+      console.log("isShippingModalOpen:", isShippingModalOpen);
+      console.log("existingProposal:", existingProposal);
+      console.log("user:", user);
+      console.log("recipientPrefs:", recipientPrefs);
+      console.log("otherUserId:", otherUserId);
+      console.log("shippingPreferences:", shippingPreferences);
+      setShippingModalOpen(true);
+    }
+  };
 
   // Handle address form success
   const handleAddressFormSuccess = useCallback(() => {
@@ -1015,461 +1092,65 @@ const TradeProposalModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className={modalClasses} onClick={handleClose}>
-      <div className={contentClasses} onClick={(e) => e.stopPropagation()}>
-        {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                {getModalTitle()}
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                {getModalDescription()}
-              </p>
-            </div>
-            <button
-              onClick={handleClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
-            >
-              <X className="h-6 w-6" />
-            </button>
-          </div>
-        </div>
-
-        {step === "propose" && !existingProposal && (
-          <div className="space-y-6 p-6">
-            {renderMessage()}
-            {renderTradeDetails()}
-
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-              <div className="flex items-start space-x-3">
-                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-                <div>
-                  <h4 className="font-medium text-blue-900">
-                    Trade Proposal Information
-                  </h4>
-                  <p className="text-sm text-blue-800 mt-1">
-                    You're about to propose a trade with {otherUser.username}.
-                    Once proposed, they'll be notified and can accept or decline
-                    your offer.
-                  </p>
-                </div>
+    <>
+      <div className={modalClasses} onClick={handleClose}>
+        <div className={contentClasses} onClick={(e) => e.stopPropagation()}>
+          {/* Modal Header */}
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {getModalTitle()}
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {getModalDescription()}
+                </p>
               </div>
-            </div>
-
-            <div className="flex space-x-4">
               <button
-                onClick={handlePropose}
-                disabled={isProcessing}
-                className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                onClick={handleClose}
+                className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
               >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>Proposing Trade...</span>
-                  </>
-                ) : (
-                  <>
-                    <ArrowLeftRight className="h-5 w-5" />
-                    <span>Propose Trade</span>
-                  </>
-                )}
-              </button>
-              <button
-                onClick={onClose}
-                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-              >
-                Cancel
+                <X className="h-6 w-6" />
               </button>
             </div>
           </div>
-        )}
 
-        {step === "propose" && existingProposal && (
-          <div className="space-y-6 p-6">
-            {renderMessage()}
-            {renderTradeDetails()}
+          {step === "propose" && !existingProposal && (
+            <div className="space-y-6 p-6">
+              {renderMessage()}
+              {renderTradeDetails()}
 
-            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-              <div className="flex items-start space-x-3">
-                <Clock className="h-5 w-5 text-yellow-600 mt-0.5" />
-                <div>
-                  <h4 className="font-medium text-yellow-900">
-                    Waiting for Response
-                  </h4>
-                  <p className="text-sm text-yellow-800 mt-1">
-                    Your trade proposal has been sent to {otherUser.username}.
-                    You'll be notified when they respond.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex space-x-4">
-              <button
-                onClick={handleDelete}
-                disabled={isProcessing}
-                className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>Deleting...</span>
-                  </>
-                ) : (
-                  <>
-                    <X className="h-5 w-5" />
-                    <span>Delete Proposal</span>
-                  </>
-                )}
-              </button>
-              <button
-                onClick={onClose}
-                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === "accept" && existingProposal && (
-          <div className="space-y-6 p-6">
-            {renderMessage()}
-            {renderTradeDetails()}
-
-            {existingProposal.status === "accepted_by_recipient" ? (
-              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                <div className="flex items-start space-x-3">
-                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
-                  <div>
-                    <h4 className="font-medium text-green-900">
-                      Trade Accepted
-                    </h4>
-                    <p className="text-sm text-green-800 mt-1">
-                      You've accepted this trade. Waiting for{" "}
-                      {otherUser.username} to confirm.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                 <div className="flex items-start space-x-3">
                   <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
                   <div>
                     <h4 className="font-medium text-blue-900">
-                      Trade Proposal Received
+                      Trade Proposal Information
                     </h4>
                     <p className="text-sm text-blue-800 mt-1">
-                      {otherUser.username} has proposed a trade with you. Review
-                      the details and decide if you want to accept.
+                      You're about to propose a trade with {otherUser.username}.
+                      Once proposed, they'll be notified and can accept or
+                      decline your offer.
                     </p>
                   </div>
                 </div>
               </div>
-            )}
 
-            <div className="flex space-x-4">
-              {existingProposal.status !== "accepted_by_recipient" && (
-                <button
-                  onClick={handleAccept}
-                  disabled={isAccepting || isDeclining}
-                  className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                >
-                  {isAccepting ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      <span>Accepting...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="h-5 w-5" />
-                      <span>Accept Trade</span>
-                    </>
-                  )}
-                </button>
-              )}
-              <button
-                onClick={
-                  existingProposal.status === "accepted_by_recipient"
-                    ? onClose
-                    : handleDecline
-                }
-                disabled={isAccepting || isDeclining}
-                className={`flex-1 flex items-center justify-center space-x-2 px-6 py-3 ${
-                  existingProposal.status === "accepted_by_recipient"
-                    ? "border border-gray-300 text-gray-700 hover:bg-gray-50"
-                    : "bg-red-600 text-white hover:bg-red-700"
-                } rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200`}
-              >
-                {isDeclining ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>Processing...</span>
-                  </>
-                ) : (
-                  <>
-                    {existingProposal.status === "accepted_by_recipient" ? (
-                      <span>Close</span>
-                    ) : (
-                      <>
-                        <X className="h-5 w-5" />
-                        <span>Decline Trade</span>
-                      </>
-                    )}
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === "confirm" && existingProposal && (
-          <div className="space-y-6 p-6">
-            {renderMessage()}
-            {renderTradeDetails()}
-
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-              <div className="flex items-start space-x-3">
-                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-                <div>
-                  <h4 className="font-medium text-blue-900">
-                    Final Confirmation
-                  </h4>
-                  <p className="text-sm text-blue-800 mt-1">
-                    {otherUser.username} has accepted your trade proposal.
-                    Please confirm to proceed with the trade.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex space-x-4">
-              <button
-                onClick={handleConfirm}
-                disabled={isProcessing}
-                className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>Confirming...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check className="h-5 w-5" />
-                    <span>Confirm Trade</span>
-                  </>
-                )}
-              </button>
-              <button
-                onClick={handleDecline}
-                disabled={isProcessing}
-                className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>Cancelling...</span>
-                  </>
-                ) : (
-                  <>
-                    <X className="h-5 w-5" />
-                    <span>Cancel Trade</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === "shipping" && existingProposal && (
-          <div className="space-y-6 p-6">
-            {renderMessage()}
-
-            {/* Shipping Method Selection */}
-            {!existingProposal.shipping_method && (
-              <ShippingMethodSelector
-                onSelect={handleSelectShippingMethod}
-                loading={isProcessing}
-                onCancel={onClose}
-              />
-            )}
-
-            {/* Mail Shipping Details */}
-            {existingProposal.shipping_method === "mail" && (
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Shipping Details
-                </h3>
-
-                {/* Shipping Address Form */}
-                {showAddressForm ? (
-                  <div className="mb-6">
-                    <ShippingPreferenceForm
-                      onSave={handleAddressFormSuccess}
-                      onCancel={() => setShowAddressForm(false)}
-                    />
-                  </div>
-                ) : (
-                  <div className="mb-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-medium text-gray-900">
-                        Your Shipping Address
-                      </h4>
-                      <button
-                        onClick={() => setShowAddressForm(true)}
-                        className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                      >
-                        {shippingPreferences.length > 0
-                          ? "Add New Address"
-                          : "Add Address"}
-                      </button>
-                    </div>
-
-                    {shippingPreferences.length > 0 ? (
-                      <div className="space-y-3">
-                        {shippingPreferences.map((address) => (
-                          <div
-                            key={address.id}
-                            onClick={() => handleAddressClick(address.id)}
-                            className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
-                              selectedAddressId === address.id
-                                ? "border-blue-500 bg-blue-50"
-                                : "border-gray-200 hover:border-gray-300"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h5 className="font-medium text-gray-900">
-                                  {address.address_name}
-                                </h5>
-                                <p className="text-sm text-gray-600">
-                                  {address.street1}
-                                  {address.street2
-                                    ? `, ${address.street2}`
-                                    : ""}
-                                  , {address.city}, {address.state}{" "}
-                                  {address.zip}
-                                </p>
-                              </div>
-                              {selectedAddressId === address.id && (
-                                <Check className="h-5 w-5 text-blue-600" />
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                        <div className="flex items-start space-x-3">
-                          <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
-                          <div>
-                            <h4 className="font-medium text-yellow-900">
-                              No Shipping Addresses
-                            </h4>
-                            <p className="text-sm text-yellow-800 mt-1">
-                              Please add a shipping address to continue with the
-                              trade.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Shipping Instructions */}
-                {!showAddressForm && (
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
-                    <h4 className="font-medium text-blue-900 mb-2">
-                      Shipping Instructions
-                    </h4>
-                    <ul className="text-sm text-blue-800 space-y-1">
-                      <li>
-                        • Package cards securely with protective sleeves and
-                        rigid mailers
-                      </li>
-                      <li>
-                        • Include a note with your username and trade details
-                      </li>
-                      <li>• Use tracking and insurance for valuable cards</li>
-                      <li>• Share tracking information in the trade chat</li>
-                      <li>
-                        • Keep your shipping receipt until delivery is confirmed
-                      </li>
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Local Meetup Details */}
-            {existingProposal.shipping_method === "local_meetup" && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Local Meetup
-                </h3>
-
-                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                  <h4 className="font-medium text-green-900 mb-2">
-                    Meetup Safety Guidelines
-                  </h4>
-                  <ul className="text-sm text-green-800 space-y-1">
-                    <li>
-                      • Always meet in a public place (coffee shops, card
-                      stores, malls)
-                    </li>
-                    <li>• Consider meeting during daylight hours</li>
-                    <li>
-                      • Let someone know where you're going and who you're
-                      meeting
-                    </li>
-                    <li>• Bring a friend if possible</li>
-                    <li>
-                      • Inspect cards carefully before completing the trade
-                    </li>
-                    <li>
-                      • Use the chat feature to coordinate meeting details
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="mt-4 flex justify-center">
-                  <button
-                    onClick={() => setStep("create_label")}
-                    className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
-                  >
-                    <MessageCircle className="h-5 w-5" />
-                    <span>Open Chat to Coordinate</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Confirm Shipping Button */}
-            {existingProposal.shipping_method && !showAddressForm && (
               <div className="flex space-x-4">
                 <button
-                  onClick={handleConfirmShipping}
-                  disabled={
-                    isProcessing ||
-                    (existingProposal.shipping_method === "mail" &&
-                      !selectedAddressId)
-                  }
+                  onClick={handlePropose}
+                  disabled={isProcessing}
                   className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 >
                   {isProcessing ? (
                     <>
                       <Loader2 className="h-5 w-5 animate-spin" />
-                      <span>Processing...</span>
+                      <span>Proposing Trade...</span>
                     </>
                   ) : (
                     <>
-                      <Truck className="h-5 w-5" />
-                      <span>Confirm Shipping</span>
+                      <ArrowLeftRight className="h-5 w-5" />
+                      <span>Propose Trade</span>
                     </>
                   )}
                 </button>
@@ -1480,18 +1161,472 @@ const TradeProposalModal = ({
                   Cancel
                 </button>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
 
-        {step === "create_label" && existingProposal && user && (
+          {step === "propose" && existingProposal && (
+            <div className="space-y-6 p-6">
+              {renderMessage()}
+              {renderTradeDetails()}
+
+              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                <div className="flex items-start space-x-3">
+                  <Clock className="h-5 w-5 text-yellow-600 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-yellow-900">
+                      Waiting for Response
+                    </h4>
+                    <p className="text-sm text-yellow-800 mt-1">
+                      Your trade proposal has been sent to {otherUser.username}.
+                      You'll be notified when they respond.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex space-x-4">
+                <button
+                  onClick={handleDelete}
+                  disabled={isProcessing}
+                  className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <X className="h-5 w-5" />
+                      <span>Delete Proposal</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === "accept" && existingProposal && (
+            <div className="space-y-6 p-6">
+              {renderMessage()}
+              {renderTradeDetails()}
+
+              {existingProposal.status === "accepted_by_recipient" ? (
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <div className="flex items-start space-x-3">
+                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-green-900">
+                        Trade Accepted
+                      </h4>
+                      <p className="text-sm text-green-800 mt-1">
+                        You've accepted this trade. Waiting for{" "}
+                        {otherUser.username} to confirm.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <div className="flex items-start space-x-3">
+                    <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-blue-900">
+                        Trade Proposal Received
+                      </h4>
+                      <p className="text-sm text-blue-800 mt-1">
+                        {otherUser.username} has proposed a trade with you.
+                        Review the details and decide if you want to accept.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex space-x-4">
+                {existingProposal.status !== "accepted_by_recipient" && (
+                  <button
+                    onClick={handleAccept}
+                    disabled={isAccepting || isDeclining}
+                    className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  >
+                    {isAccepting ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span>Accepting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-5 w-5" />
+                        <span>Accept Trade</span>
+                      </>
+                    )}
+                  </button>
+                )}
+                <button
+                  onClick={
+                    existingProposal.status === "accepted_by_recipient"
+                      ? onClose
+                      : handleDecline
+                  }
+                  disabled={isAccepting || isDeclining}
+                  className={`flex-1 flex items-center justify-center space-x-2 px-6 py-3 ${
+                    existingProposal.status === "accepted_by_recipient"
+                      ? "border border-gray-300 text-gray-700 hover:bg-gray-50"
+                      : "bg-red-600 text-white hover:bg-red-700"
+                  } rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200`}
+                >
+                  {isDeclining ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>Processing...</span>
+                    </>
+                  ) : (
+                    <>
+                      {existingProposal.status === "accepted_by_recipient" ? (
+                        <span>Close</span>
+                      ) : (
+                        <>
+                          <X className="h-5 w-5" />
+                          <span>Decline Trade</span>
+                        </>
+                      )}
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === "confirm" && existingProposal && (
+            <div className="space-y-6 p-6">
+              {renderMessage()}
+              {renderTradeDetails()}
+
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-blue-900">
+                      Final Confirmation
+                    </h4>
+                    <p className="text-sm text-blue-800 mt-1">
+                      {otherUser.username} has accepted your trade proposal.
+                      Please confirm to proceed with the trade.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex space-x-4">
+                <button
+                  onClick={handleConfirm}
+                  disabled={isProcessing}
+                  className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>Confirming...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-5 w-5" />
+                      <span>Confirm Trade</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleDecline}
+                  disabled={isProcessing}
+                  className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>Cancelling...</span>
+                    </>
+                  ) : (
+                    <>
+                      <X className="h-5 w-5" />
+                      <span>Cancel Trade</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === "shipping" && existingProposal && (
+            <div className="space-y-6 p-6">
+              {renderMessage()}
+
+              {/* Shipping Method Selection */}
+              {!existingProposal.shipping_method && (
+                <ShippingMethodSelector
+                  onSelect={handleSelectShippingMethod}
+                  loading={isProcessing}
+                  onCancel={onClose}
+                />
+              )}
+
+              {/* Mail Shipping Details */}
+              {existingProposal.shipping_method === "mail" && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Shipping Details
+                  </h3>
+
+                  {/* Shipping Address Form */}
+                  {showAddressForm ? (
+                    <div className="mb-6">
+                      <ShippingPreferenceForm
+                        onSave={handleAddressFormSuccess}
+                        onCancel={() => setShowAddressForm(false)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="mb-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium text-gray-900">
+                          Your Shipping Address
+                        </h4>
+                        <button
+                          onClick={() => setShowAddressForm(true)}
+                          className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                        >
+                          {shippingPreferences.length > 0
+                            ? "Add New Address"
+                            : "Add Address"}
+                        </button>
+                      </div>
+
+                      {shippingPreferences.length > 0 ? (
+                        <div className="space-y-3">
+                          {shippingPreferences.map((address) => (
+                            <div
+                              key={address.id}
+                              onClick={() => handleAddressClick(address.id)}
+                              className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
+                                selectedAddressId === address.id
+                                  ? "border-blue-500 bg-blue-50"
+                                  : "border-gray-200 hover:border-gray-300"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h5 className="font-medium text-gray-900">
+                                    {address.address_name}
+                                  </h5>
+                                  <p className="text-sm text-gray-600">
+                                    {address.street1}
+                                    {address.street2
+                                      ? `, ${address.street2}`
+                                      : ""}
+                                    , {address.city}, {address.state}{" "}
+                                    {address.zip}
+                                  </p>
+                                </div>
+                                {selectedAddressId === address.id && (
+                                  <Check className="h-5 w-5 text-blue-600" />
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                          <div className="flex items-start space-x-3">
+                            <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                            <div>
+                              <h4 className="font-medium text-yellow-900">
+                                No Shipping Addresses
+                              </h4>
+                              <p className="text-sm text-yellow-800 mt-1">
+                                Please add a shipping address to continue with
+                                the trade.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Shipping Instructions */}
+                  {!showAddressForm && (
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
+                      <h4 className="font-medium text-blue-900 mb-2">
+                        Shipping Instructions
+                      </h4>
+                      <ul className="text-sm text-blue-800 space-y-1">
+                        <li>
+                          • Package cards securely with protective sleeves and
+                          rigid mailers
+                        </li>
+                        <li>
+                          • Include a note with your username and trade details
+                        </li>
+                        <li>• Use tracking and insurance for valuable cards</li>
+                        <li>• Share tracking information in the trade chat</li>
+                        <li>
+                          • Keep your shipping receipt until delivery is
+                          confirmed
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Local Meetup Details */}
+              {existingProposal.shipping_method === "local_meetup" && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Local Meetup
+                  </h3>
+
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                    <h4 className="font-medium text-green-900 mb-2">
+                      Meetup Safety Guidelines
+                    </h4>
+                    <ul className="text-sm text-green-800 space-y-1">
+                      <li>
+                        • Always meet in a public place (coffee shops, card
+                        stores, malls)
+                      </li>
+                      <li>• Consider meeting during daylight hours</li>
+                      <li>
+                        • Let someone know where you're going and who you're
+                        meeting
+                      </li>
+                      <li>• Bring a friend if possible</li>
+                      <li>
+                        • Inspect cards carefully before completing the trade
+                      </li>
+                      <li>
+                        • Use the chat feature to coordinate meeting details
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="mt-4 flex justify-center">
+                    <button
+                      onClick={() => setStep("create_label")}
+                      className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
+                    >
+                      <MessageCircle className="h-5 w-5" />
+                      <span>Open Chat to Coordinate</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Confirm Shipping Button */}
+              {existingProposal.shipping_method && !showAddressForm && (
+                <div className="flex space-x-4">
+                  <button
+                    onClick={handleConfirmShipping}
+                    disabled={
+                      isProcessing ||
+                      (existingProposal.shipping_method === "mail" &&
+                        !selectedAddressId)
+                    }
+                    className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span>Processing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Truck className="h-5 w-5" />
+                        <span>Confirm Shipping</span>
+                      </>
+                    )}
+                  </button>
+                  {existingProposal.shipping_method && showGetRatesButton && (
+                    <button
+                      onClick={handleGetRates}
+                      className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                    >
+                      Get Rates
+                    </button>
+                  )}
+
+                  <button
+                    onClick={onClose}
+                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {step === "create_label" && existingProposal && (
+            <div className="space-y-6 p-6">
+              {renderMessage()}
+              {renderTradeDetails()}
+
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <div className="flex items-start space-x-3">
+                  <Truck className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-blue-900">
+                      Ready to Create Shipping Label
+                    </h4>
+                    <p className="text-sm text-blue-800 mt-1">
+                      Your shipping details have been confirmed. Click "Get
+                      Rates" to create shipping labels and complete the trade
+                      setup.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex space-x-4">
+                <button
+                  onClick={handleGetRates}
+                  className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200"
+                >
+                  <Truck className="h-5 w-5" />
+                  <span>Get Rates</span>
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Remove the step === "create_label" condition from the ShippingModal */}
+
+          {/* {existingProposal && user && (
+          <div className="p-4 rounded bg-red-400 text-black">
+            <p>Shipping details are required to proceed with the trade.</p>
+          </div>
+        )} */}
+
+          {/* {existingProposal && user && (
           <ShippingModal
             isOpen={isShippingModalOpen}
             onClose={() => setShippingModalOpen(false)}
-            tradeId={existingProposal.id}
-            user={user}
+            tradeId={existingProposal?.id || ""}
+            user={user!}
             otherUser={otherUser}
-            isProposer={user.id === existingProposal.proposer_id}
+            isProposer={user?.id === existingProposal?.proposer_id}
             onShippingComplete={handleShippingComplete}
             onShippingError={(error) => {
               setMessage({
@@ -1504,82 +1639,111 @@ const TradeProposalModal = ({
             shippingPreferences={shippingPreferences}
             recipientShippingPreferences={recipientPrefs}
           />
-        )}
+        )} */}
 
-        {step === "waiting_for_label" && (
-          <div className="text-center p-6 bg-white rounded-lg shadow">
-            <div className="flex flex-col items-center">
-              <Loader2 className="h-12 w-12 text-blue-500 animate-spin mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Waiting for Shipping Label
-              </h3>
-              <p className="text-gray-600 mb-4">
-                {otherUser.username} is preparing the shipping label. You'll
-                receive a notification once it's ready.
-              </p>
+          {/* {step === "create_label" && existingProposal && user && (
+          
+        )} */}
+
+          {step === "waiting_for_label" && (
+            <div className="text-center p-6 bg-white rounded-lg shadow">
+              <div className="flex flex-col items-center">
+                <Loader2 className="h-12 w-12 text-blue-500 animate-spin mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Waiting for Shipping Label
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  {otherUser.username} is preparing the shipping label. You'll
+                  receive a notification once it's ready.
+                </p>
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === "complete" && (
+            <div className="space-y-6 text-center p-6">
+              <div className="flex justify-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="h-8 w-8 text-green-600" />
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Trade Completed!
+                </h3>
+                <p className="text-gray-600">
+                  Your trade with {otherUser.username} has been successfully
+                  completed.
+                </p>
+              </div>
+
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <h4 className="font-medium text-green-900 mb-2">Next Steps:</h4>
+                {existingProposal?.shipping_method === "mail" ? (
+                  <ul className="text-sm text-green-800 space-y-1 text-left">
+                    <li>
+                      • Track your package using the provided tracking number
+                    </li>
+                    <li>• Confirm receipt of the cards in the trade chat</li>
+                    <li>
+                      • Rate your trading experience with {otherUser.username}
+                    </li>
+                    <li>• Add the new cards to your collection</li>
+                  </ul>
+                ) : (
+                  <ul className="text-sm text-green-800 space-y-1 text-left">
+                    <li>• The trade has been marked as completed</li>
+                    <li>
+                      • Rate your trading experience with {otherUser.username}
+                    </li>
+                    <li>• Add the new cards to your collection</li>
+                    <li>
+                      • Check your Profile page to see this completed trade
+                    </li>
+                  </ul>
+                )}
+              </div>
+
               <button
                 onClick={onClose}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
               >
                 Close
               </button>
             </div>
-          </div>
-        )}
-
-        {step === "complete" && (
-          <div className="space-y-6 text-center p-6">
-            <div className="flex justify-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="h-8 w-8 text-green-600" />
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Trade Completed!
-              </h3>
-              <p className="text-gray-600">
-                Your trade with {otherUser.username} has been successfully
-                completed.
-              </p>
-            </div>
-
-            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-              <h4 className="font-medium text-green-900 mb-2">Next Steps:</h4>
-              {existingProposal?.shipping_method === "mail" ? (
-                <ul className="text-sm text-green-800 space-y-1 text-left">
-                  <li>
-                    • Track your package using the provided tracking number
-                  </li>
-                  <li>• Confirm receipt of the cards in the trade chat</li>
-                  <li>
-                    • Rate your trading experience with {otherUser.username}
-                  </li>
-                  <li>• Add the new cards to your collection</li>
-                </ul>
-              ) : (
-                <ul className="text-sm text-green-800 space-y-1 text-left">
-                  <li>• The trade has been marked as completed</li>
-                  <li>
-                    • Rate your trading experience with {otherUser.username}
-                  </li>
-                  <li>• Add the new cards to your collection</li>
-                  <li>• Check your Profile page to see this completed trade</li>
-                </ul>
-              )}
-            </div>
-
-            <button
-              onClick={onClose}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
-            >
-              Close
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+
+      {isShippingModalOpen && existingProposal && user && (
+        <ShippingModal
+          isOpen={isShippingModalOpen}
+          onClose={() => setShippingModalOpen(false)}
+          tradeId={existingProposal.id}
+          user={user}
+          otherUser={otherUser}
+          isProposer={user.id === existingProposal.proposer_id}
+          onShippingComplete={handleShippingComplete}
+          onShippingError={(error) => {
+            setMessage({
+              type: "error",
+              text: error,
+            });
+          }}
+          onSaveAddress={handleSaveAddress}
+          onRequestRecipientAddress={handleRequestRecipientAddress}
+          shippingPreferences={shippingPreferences}
+          recipientShippingPreferences={recipientPrefs}
+        />
+      )}
+    </>
   );
 };
 
