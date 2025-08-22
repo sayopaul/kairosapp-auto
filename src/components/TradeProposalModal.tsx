@@ -439,8 +439,8 @@ const TradeProposalModal = ({
         type: "success",
         text: "Shipping label created successfully!",
       });
-      // Close the shipping modal
-      setShippingModalOpen(false);
+      // Don't close the modal here - let the ShippingModal handle the confirmation step
+      // The modal will be closed when the user clicks "Done" in the confirmation step
       // You might want to refresh the trade proposal data here
       // or update the UI to reflect the new shipping status
     },
@@ -744,6 +744,7 @@ const TradeProposalModal = ({
       setStep("create_label");
       // display the button to get rates
       setShowGetRatesButton(true);
+      // setShippingModalOpen(true);
 
       setMessage({
         type: "success",
@@ -1109,7 +1110,7 @@ const TradeProposalModal = ({
               </div>
               <button
                 onClick={handleClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                className="text-gray-400 hover:text-gray-600 transition-colors duration     -200"
               >
                 <X className="h-6 w-6" />
               </button>

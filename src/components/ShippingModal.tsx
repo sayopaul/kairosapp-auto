@@ -74,14 +74,6 @@ const ShippingModal = ({
   shippingPreferences = [],
   recipientShippingPreferences = [],
 }: ShippingModalProps): JSX.Element | null => {
-  console.log("=== ShippingModal Debug ===");
-  console.log("isOpen:", isOpen);
-  console.log("user:", user);
-  console.log("otherUser:", otherUser);
-  console.log("shippingPreferences:", shippingPreferences);
-  console.log("recipientShippingPreferences:", recipientShippingPreferences);
-  console.log("isProposer:", isProposer);
-
   // State management
   const [step, setStep] = useState<
     | "check_recipient"
@@ -90,6 +82,15 @@ const ShippingModal = ({
     | "confirm_shipping"
     | "confirmation"
   >("check_recipient");
+
+  console.log("=== ShippingModal Debug ===");
+  console.log("isOpen:", isOpen);
+  console.log("user:", user);
+  console.log("otherUser:", otherUser);
+  console.log("shippingPreferences:", shippingPreferences);
+  console.log("recipientShippingPreferences:", recipientShippingPreferences);
+  console.log("isProposer:", isProposer);
+  console.log("Current step:", step);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [rates, setRates] = useState<ShippingRate[]>([]);
@@ -430,6 +431,7 @@ const ShippingModal = ({
       );
 
       // Move to confirmation step
+      console.log("Moving to confirmation step");
       setStep("confirmation");
     } catch (err) {
       console.error("Error in handlePayment:", err);
@@ -762,6 +764,10 @@ const ShippingModal = ({
 
               {step === "confirmation" && (
                 <div className="text-center space-y-6">
+                  {/* {(() => {
+                    console.log("Rendering confirmation step");
+                    return null;
+                  })()} */}
                   <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
                   <div>
                     <h4 className="text-xl font-semibold text-gray-900 mb-2">
@@ -798,24 +804,6 @@ const ShippingModal = ({
                     <a
                       href={labelUrl}
                       target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium"
-                    >
-                      <svg
-                        className="w-5 h-5 mr-2"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0014.414 6L12 3.586A2 2 0 0010.586 3H6a2 2 0 00-2 2zm2 1a1 1 0 011-1h3.586a1 1 0 01.707.293L13.414 6H14a1 1 0 011 1v8a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      View PDF Label
-                    </a>
-                    <a
-                      href={labelUrl}
                       download="shipping-label.pdf"
                       className="inline-flex items-center justify-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 font-medium"
                     >
@@ -830,7 +818,7 @@ const ShippingModal = ({
                           clipRule="evenodd"
                         />
                       </svg>
-                      Download PDF
+                      Download Shipping Label
                     </a>
                     <button
                       onClick={onClose}
