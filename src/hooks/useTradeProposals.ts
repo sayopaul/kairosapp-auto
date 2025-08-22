@@ -239,13 +239,32 @@ export function useTradeProposals(userId?: string) {
     return proposals.find(p => p.match_id === matchId) || null;
   }, [proposals]);
 
-  const createProposal = async (proposalData: Omit<TradeProposal, 'id' | 'created_at' | 'updated_at' | 'match' | 'proposer_confirmed' | 'recipient_confirmed' | 'proposer_shipping_confirmed' | 'recipient_shipping_confirmed'>) => {
+  const getProposalById = useCallback(
+    (proposalId: string): TradeProposal | null => {
+      return proposals.find((p) => p.id === proposalId) || null;
+    },
+    [proposals]
+  );
+
+  const createProposal = async (
+    proposalData: Omit<
+      TradeProposal,
+      | "id"
+      | "created_at"
+      | "updated_at"
+      | "match"
+      | "proposer_confirmed"
+      | "recipient_confirmed"
+      | "proposer_shipping_confirmed"
+      | "recipient_shipping_confirmed"
+    >
+  ) => {
     try {
       setLoading(true);
       setError(null);
 
       const { data, error: insertError } = await supabase
-        .from('trade_proposals')
+        .from("trade_proposals")
         .insert([proposalData])
         .select()
         .single();
@@ -255,23 +274,28 @@ export function useTradeProposals(userId?: string) {
       await fetchProposals();
       return data;
     } catch (err) {
-      console.error('Error creating trade proposal:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create trade proposal');
+      console.error("Error creating trade proposal:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to create trade proposal"
+      );
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  const updateProposal = async (proposalId: string, updates: Partial<TradeProposal>) => {
+  const updateProposal = async (
+    proposalId: string,
+    updates: Partial<TradeProposal>
+  ) => {
     try {
       setLoading(true);
       setError(null);
 
       const { data, error: updateError } = await supabase
-        .from('trade_proposals')
+        .from("trade_proposals")
         .update(updates)
-        .eq('id', proposalId)
+        .eq("id", proposalId)
         .select()
         .single();
 
@@ -280,8 +304,10 @@ export function useTradeProposals(userId?: string) {
       await fetchProposals();
       return data;
     } catch (err) {
-      console.error('Error updating trade proposal:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update trade proposal');
+      console.error("Error updating trade proposal:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to update trade proposal"
+      );
       throw err;
     }
   };
@@ -292,12 +318,12 @@ export function useTradeProposals(userId?: string) {
       setError(null);
 
       const { data, error: updateError } = await supabase
-        .from('trade_proposals')
-        .update({ 
-          status: 'declined',
-          updated_at: new Date().toISOString()
+        .from("trade_proposals")
+        .update({
+          status: "declined",
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', proposalId)
+        .eq("id", proposalId)
         .select()
         .single();
 
@@ -306,8 +332,10 @@ export function useTradeProposals(userId?: string) {
       await fetchProposals();
       return data;
     } catch (err) {
-      console.error('Error declining trade proposal:', err);
-      setError(err instanceof Error ? err.message : 'Failed to decline trade proposal');
+      console.error("Error declining trade proposal:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to decline trade proposal"
+      );
       throw err;
     } finally {
       setLoading(false);
@@ -320,17 +348,19 @@ export function useTradeProposals(userId?: string) {
       setError(null);
 
       const { error: deleteError } = await supabase
-        .from('trade_proposals')
+        .from("trade_proposals")
         .delete()
-        .eq('id', proposalId);
+        .eq("id", proposalId);
 
       if (deleteError) throw deleteError;
 
-      setProposals(prev => prev.filter(p => p.id !== proposalId));
+      setProposals((prev) => prev.filter((p) => p.id !== proposalId));
       return true;
     } catch (err) {
-      console.error('Error deleting trade proposal:', err);
-      setError(err instanceof Error ? err.message : 'Failed to delete trade proposal');
+      console.error("Error deleting trade proposal:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to delete trade proposal"
+      );
       throw err;
     } finally {
       setLoading(false);
@@ -343,9 +373,9 @@ export function useTradeProposals(userId?: string) {
       setError(null);
 
       const { data, error: updateError } = await supabase
-        .from('trade_proposals')
+        .from("trade_proposals")
         .update({ status: newStatus })
-        .eq('id', proposalId)
+        .eq("id", proposalId)
         .select()
         .single();
 
@@ -354,8 +384,10 @@ export function useTradeProposals(userId?: string) {
       await fetchProposals();
       return data;
     } catch (err) {
-      console.error('Error updating trade status:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update trade status');
+      console.error("Error updating trade status:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to update trade status"
+      );
       throw err;
     } finally {
       setLoading(false);
@@ -368,12 +400,12 @@ export function useTradeProposals(userId?: string) {
       setError(null);
 
       const { data, error: updateError } = await supabase
-        .from('trade_proposals')
+        .from("trade_proposals")
         .update({
-          status: 'completed',
-          completed_at: new Date().toISOString()
+          status: "completed",
+          completed_at: new Date().toISOString(),
         })
-        .eq('id', proposalId)
+        .eq("id", proposalId)
         .select()
         .single();
 
@@ -382,8 +414,10 @@ export function useTradeProposals(userId?: string) {
       await fetchProposals();
       return data;
     } catch (err) {
-      console.error('Error completing trade proposal:', err);
-      setError(err instanceof Error ? err.message : 'Failed to complete trade proposal');
+      console.error("Error completing trade proposal:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to complete trade proposal"
+      );
       throw err;
     } finally {
       setLoading(false);
@@ -392,33 +426,38 @@ export function useTradeProposals(userId?: string) {
 
   const updateProposalAddresses = async (
     proposalId: string,
-    { proposerAddressId, recipientAddressId }: { proposerAddressId?: string, recipientAddressId?: string }
+    {
+      proposerAddressId,
+      recipientAddressId,
+    }: { proposerAddressId?: string; recipientAddressId?: string }
   ) => {
     if (!userId) return null;
 
     try {
-      const updates: Partial<TradeProposal> = { updated_at: new Date().toISOString() };
+      const updates: Partial<TradeProposal> = {
+        updated_at: new Date().toISOString(),
+      };
 
       if (proposerAddressId) updates.proposer_address_id = proposerAddressId;
       if (recipientAddressId) updates.recipient_address_id = recipientAddressId;
 
       const { data, error } = await supabase
-        .from('trade_proposals')
+        .from("trade_proposals")
         .update(updates)
-        .eq('id', proposalId)
+        .eq("id", proposalId)
         .select()
         .single();
 
       if (error) throw error;
 
       // Update local state
-      setProposals(prev =>
-        prev.map(p => p.id === proposalId ? { ...p, ...updates } : p)
+      setProposals((prev) =>
+        prev.map((p) => (p.id === proposalId ? { ...p, ...updates } : p))
       );
 
       return data;
     } catch (error) {
-      console.error('Error updating proposal addresses:', error);
+      console.error("Error updating proposal addresses:", error);
       throw error;
     }
   };
@@ -428,69 +467,158 @@ export function useTradeProposals(userId?: string) {
       setLoading(true);
       setError(null);
 
-      const updateField = isProposer ? 'proposer_shipping_confirmed' : 'recipient_shipping_confirmed';
-      
+      const updateField = isProposer
+        ? "proposer_shipping_confirmed"
+        : "recipient_shipping_confirmed";
+
       const { data, error: updateError } = await supabase
-        .from('trade_proposals')
-        .update({ 
+        .from("trade_proposals")
+        .update({
           [updateField]: true,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', proposalId)
+        .eq("id", proposalId)
         .select()
         .single();
 
       if (updateError) throw updateError;
 
       // Update local state
-      setProposals(prev =>
-        prev.map(p => 
-          p.id === proposalId 
-            ? { ...p, [updateField]: true, updated_at: new Date().toISOString() } 
+      setProposals((prev) =>
+        prev.map((p) =>
+          p.id === proposalId
+            ? {
+                ...p,
+                [updateField]: true,
+                updated_at: new Date().toISOString(),
+              }
             : p
         )
       );
 
       return data;
     } catch (err) {
-      console.error('Error confirming shipping:', err);
-      setError(err instanceof Error ? err.message : 'Failed to confirm shipping');
+      console.error("Error confirming shipping:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to confirm shipping"
+      );
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  const updateShippingMethod = async (proposalId: string, shippingMethod: string) => {
+  const updateShippingMethod = async (
+    proposalId: string,
+    shippingMethod: string
+  ) => {
     try {
       setLoading(true);
       setError(null);
 
       const { data, error: updateError } = await supabase
-        .from('trade_proposals')
-        .update({ 
+        .from("trade_proposals")
+        .update({
           shipping_method: shippingMethod,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', proposalId)
+        .eq("id", proposalId)
         .select()
         .single();
 
       if (updateError) throw updateError;
 
       // Update local state
-      setProposals(prev =>
-        prev.map(p => 
-          p.id === proposalId 
-            ? { ...p, shipping_method: shippingMethod, updated_at: new Date().toISOString() } 
+      setProposals((prev) =>
+        prev.map((p) =>
+          p.id === proposalId
+            ? {
+                ...p,
+                shipping_method: shippingMethod,
+                updated_at: new Date().toISOString(),
+              }
             : p
         )
       );
 
       return data;
     } catch (err) {
-      console.error('Error updating shipping method:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update shipping method');
+      console.error("Error updating shipping method:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to update shipping method"
+      );
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateShippingStatus = async (
+    proposalId: string,
+    updates: {
+      trackingNumber?: string;
+      carrier?: string;
+      labelUrl?: string;
+      isProposer: boolean;
+      status?: string;
+    }
+  ) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { trackingNumber, carrier, labelUrl, isProposer, status } = updates;
+
+      // Prepare the update data
+      const updateData: any = {
+        updated_at: new Date().toISOString(),
+      };
+
+      // Set status if provided
+      if (status) {
+        updateData.status = status;
+      }
+
+      // Update tracking info (keep for backward compatibility)
+      if (trackingNumber) updateData.tracking_number = trackingNumber;
+      if (carrier) updateData.carrier = carrier;
+      if (labelUrl) updateData.label_url = labelUrl;
+
+      // Update the appropriate user's specific fields
+      if (isProposer) {
+        if (trackingNumber)
+          updateData.proposer_tracking_number = trackingNumber;
+        if (carrier) updateData.proposer_carrier = carrier;
+        if (labelUrl) updateData.proposer_label_url = labelUrl;
+        updateData.proposer_shipping_confirmed = true;
+      } else {
+        if (trackingNumber)
+          updateData.recipient_tracking_number = trackingNumber;
+        if (carrier) updateData.recipient_carrier = carrier;
+        if (labelUrl) updateData.recipient_label_url = labelUrl;
+        updateData.recipient_shipping_confirmed = true;
+      }
+
+      const { data, error: updateError } = await supabase
+        .from("trade_proposals")
+        .update(updateData)
+        .eq("id", proposalId)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setProposals((prev) =>
+        prev.map((p) => (p.id === proposalId ? { ...p, ...updateData } : p))
+      );
+
+      return data;
+    } catch (err) {
+      console.error("Error updating shipping status:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to update shipping status"
+      );
       throw err;
     } finally {
       setLoading(false);
@@ -504,29 +632,31 @@ export function useTradeProposals(userId?: string) {
 
       // First, get the current proposal to check user roles
       const { data: proposal, error: fetchError } = await supabase
-        .from('trade_proposals')
-        .select('*')
-        .eq('id', proposalId)
+        .from("trade_proposals")
+        .select("*")
+        .eq("id", proposalId)
         .single();
 
       if (fetchError) throw fetchError;
-      if (!proposal) throw new Error('Proposal not found');
+      if (!proposal) throw new Error("Proposal not found");
 
       // Get current user ID
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
 
       // Determine if current user is the proposer or recipient
       const isProposer = user.id === proposal.proposer_id;
       const isRecipient = user.id === proposal.recipient_id;
 
       if (!isProposer && !isRecipient) {
-        throw new Error('You are not authorized to update this proposal');
+        throw new Error("You are not authorized to update this proposal");
       }
 
       // Prepare the update object
       const updateData: any = {
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
       // Update the appropriate confirmation flag based on user role
@@ -538,9 +668,9 @@ export function useTradeProposals(userId?: string) {
 
       // If both parties have confirmed, we'll let the trigger handle the status update
       const { data, error: updateError } = await supabase
-        .from('trade_proposals')
+        .from("trade_proposals")
         .update(updateData)
-        .eq('id', proposalId)
+        .eq("id", proposalId)
         .select()
         .single();
 
@@ -550,8 +680,10 @@ export function useTradeProposals(userId?: string) {
       await fetchProposals();
       return data;
     } catch (err) {
-      console.error('Error accepting trade proposal:', err);
-      setError(err instanceof Error ? err.message : 'Failed to accept trade proposal');
+      console.error("Error accepting trade proposal:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to accept trade proposal"
+      );
       throw err;
     } finally {
       setLoading(false);
@@ -563,17 +695,19 @@ export function useTradeProposals(userId?: string) {
     loading,
     error,
     getProposalForMatch,
+    getProposalById,
     createProposal,
     acceptProposal,
     confirmShipping,
     declineProposal,
     updateProposal,
+    updateShippingStatus,
     deleteProposal,
     updateTradeStatus,
     completeTradeProposal,
     updateProposalAddresses,
     updateShippingMethod,
-    refetchProposals: fetchProposals
+    refetchProposals: fetchProposals,
   };
 };
 

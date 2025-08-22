@@ -42,8 +42,16 @@ export interface TradeProposal {
   tracking_number?: string;
   carrier?: string;
   label_url?: string;
-  status: 'proposed' | 'accepted_by_recipient' | 'confirmed' | 'shipping_confirmed' | 'shipping_pending' | 'completed' | 'declined' | 'cancelled';
-  shipping_method?: 'mail' | 'local_meetup';
+  status:
+    | "proposed"
+    | "accepted_by_recipient"
+    | "confirmed"
+    | "shipping_confirmed"
+    | "shipping_pending"
+    | "completed"
+    | "declined"
+    | "cancelled";
+  shipping_method?: "mail" | "local_meetup";
   proposer_confirmed: boolean;
   recipient_confirmed: boolean;
   proposer_shipping_confirmed: boolean;
@@ -58,6 +66,8 @@ export interface TradeProposal {
   shipping_address_from?: any;
   shipping_address_to?: any;
   shipping_rate?: any;
+  proposer_label_url?: string;
+  recipient_label_url?: string;
 }
 
 export interface TradeScore {

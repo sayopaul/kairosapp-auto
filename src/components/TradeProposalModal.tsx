@@ -33,6 +33,8 @@ type ModalStep =
   | "shipping"
   | "create_label"
   | "waiting_for_label"
+  | "waiting_for_other_user_shipping"
+  | "ready_for_delivery_confirmation"
   | "complete";
 
 interface TradeProposalModalProps {
@@ -98,6 +100,9 @@ const TradeProposalModal = ({
   const [recipientPrefs, setRecipientPrefs] = useState<ShippingPreference[]>(
     []
   );
+  const [hasShippingLabelBeenCreated, setHasShippingLabelBeenCreated] =
+    useState(false);
+  const [isInShippingSuccessFlow, setIsInShippingSuccessFlow] = useState(false);
 
   // Auth and data hooks
   const { user } = useAuth();
@@ -330,29 +335,91 @@ const TradeProposalModal = ({
   //     setStep("complete");
   //   }
   // }, [existingProposal, isRecipient, isProposer, isOpen]);
+  // useEffect(() => {
+  //   if (!existingProposal || !isOpen) return;
+
+  //   console.log(
+  //     "Updating step based on proposal status:",
+  //     existingProposal.status
+  //   );
+
+  //   if (existingProposal.status === "proposed") {
+  //     setStep(isRecipient ? "accept" : "propose");
+  //   } else if (existingProposal.status === "accepted_by_recipient") {
+  //     setStep(isProposer ? "confirm" : "accept");
+  //   } else if (
+  //     existingProposal.status === "shipping_pending" ||
+  //     existingProposal.status === "shipping_confirmed"
+  //   ) {
+  //     // Check if we should be in the create_label step
+  //     // Don't override the step if showGetRatesButton is true (indicating user is ready to create labels)
+  //     if (showGetRatesButton) {
+  //       setStep("create_label");
+  //     } else {
+  //       setStep("shipping");
+  //     }
+  //     const method = existingProposal.shipping_method as
+  //       | "mail"
+  //       | "local_meetup"
+  //       | undefined;
+  //     setShippingMethod(method || "mail");
+  //   } else if (existingProposal.status === "completed") {
+  //     setStep("complete");
+  //   }
+  // }, [existingProposal, isRecipient, isProposer, isOpen, showGetRatesButton]);
+
   useEffect(() => {
     if (!existingProposal || !isOpen) return;
+
+    // Don't override step if we're in the shipping success flow
+    if (isInShippingSuccessFlow) {
+      return;
+    }
 
     console.log(
       "Updating step based on proposal status:",
       existingProposal.status
     );
+    console.log("existingProposal", existingProposal);
 
     if (existingProposal.status === "proposed") {
       setStep(isRecipient ? "accept" : "propose");
     } else if (existingProposal.status === "accepted_by_recipient") {
       setStep(isProposer ? "confirm" : "accept");
-    } else if (
-      existingProposal.status === "shipping_pending" ||
-      existingProposal.status === "shipping_confirmed"
-    ) {
-      // Check if we should be in the create_label step
-      // Don't override the step if showGetRatesButton is true (indicating user is ready to create labels)
-      if (showGetRatesButton) {
-        setStep("create_label");
+    } else if (existingProposal.status === "shipping_pending") {
+      setStep("shipping");
+      const method = existingProposal.shipping_method as
+        | "mail"
+        | "local_meetup"
+        | undefined;
+      setShippingMethod(method || "mail");
+    } else if (existingProposal.status === "shipping_confirmed") {
+      // Check who has created labels and set appropriate step
+      const userLabelUrl = isProposer
+        ? existingProposal.proposer_label_url
+        : existingProposal.recipient_label_url;
+      const otherUserLabelUrl = isProposer
+        ? existingProposal.recipient_label_url
+        : existingProposal.proposer_label_url;
+
+      if (userLabelUrl) {
+        // Current user has created their label
+        if (otherUserLabelUrl) {
+          // Both users have created labels - ready for delivery confirmation
+          setStep("ready_for_delivery_confirmation");
+        } else {
+          // Only current user has created label - waiting for other user
+          setStep("waiting_for_other_user_shipping");
+        }
       } else {
-        setStep("shipping");
+        // Current user hasn't created label yet
+        if (showGetRatesButton) {
+          setStep("create_label");
+        } else {
+          setStep("shipping");
+        }
       }
+
       const method = existingProposal.shipping_method as
         | "mail"
         | "local_meetup"
@@ -361,7 +428,14 @@ const TradeProposalModal = ({
     } else if (existingProposal.status === "completed") {
       setStep("complete");
     }
-  }, [existingProposal, isRecipient, isProposer, isOpen, showGetRatesButton]);
+  }, [
+    existingProposal,
+    isRecipient,
+    isProposer,
+    isOpen,
+    showGetRatesButton,
+    isInShippingSuccessFlow,
+  ]);
 
   // Fetch shipping preferences on mount
   useEffect(() => {
@@ -423,6 +497,30 @@ const TradeProposalModal = ({
     }
   }, [existingProposal?.id, user?.id]);
 
+  // const handleShippingComplete = useCallback(
+  //   (
+  //     trackingNumber: string,
+  //     carrier: string,
+  //     labelUrl: string,
+  //     isProposer: boolean
+  //   ) => {
+  //     // Update the tracking information state
+  //     setTrackingNumber(trackingNumber);
+  //     setCarrier(carrier);
+  //     setLabelUrl(labelUrl);
+
+  //     setMessage({
+  //       type: "success",
+  //       text: "Shipping label created successfully!",
+  //     });
+  //     // Don't close the modal here - let the ShippingModal handle the confirmation step
+  //     // The modal will be closed when the user clicks "Done" in the confirmation step
+  //     // You might want to refresh the trade proposal data here
+  //     // or update the UI to reflect the new shipping status
+  //   },
+  //   []
+  // );
+
   const handleShippingComplete = useCallback(
     (
       trackingNumber: string,
@@ -434,18 +532,65 @@ const TradeProposalModal = ({
       setTrackingNumber(trackingNumber);
       setCarrier(carrier);
       setLabelUrl(labelUrl);
+      setHasShippingLabelBeenCreated(true);
+      setIsInShippingSuccessFlow(true);
 
       setMessage({
         type: "success",
         text: "Shipping label created successfully!",
       });
-      // Don't close the modal here - let the ShippingModal handle the confirmation step
-      // The modal will be closed when the user clicks "Done" in the confirmation step
-      // You might want to refresh the trade proposal data here
-      // or update the UI to reflect the new shipping status
+
+      // Close the shipping modal
+      setShippingModalOpen(false);
+
+      // Check if other user has also created their label
+      const otherUserLabelUrl = isProposer
+        ? existingProposal?.recipient_label_url
+        : existingProposal?.proposer_label_url;
+
+      if (otherUserLabelUrl) {
+        // Both users have created labels - ready for delivery confirmation
+        setStep("ready_for_delivery_confirmation");
+      } else {
+        // Only current user has created label - waiting for other user
+        setStep("waiting_for_other_user_shipping");
+      }
     },
-    []
+    [existingProposal]
   );
+
+  // Handle Confirm Delivery
+  const handleConfirmDelivery = useCallback(async () => {
+    if (!existingProposal || !user) return;
+
+    try {
+      setIsProcessing(true);
+      setMessage(null);
+
+      await handleUpdateProposal(existingProposal.id, {
+        status: "completed",
+        updated_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+      });
+
+      setMessage({
+        type: "success",
+        text: "Delivery confirmed! Trade completed.",
+      });
+
+      setStep("complete");
+      setIsInShippingSuccessFlow(false);
+      await memoizedRefetchProposal();
+    } catch (error) {
+      console.error("Error confirming delivery:", error);
+      setMessage({
+        type: "error",
+        text: "Failed to confirm delivery",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [existingProposal, user, handleUpdateProposal, memoizedRefetchProposal]);
 
   // Validate trade proposal data
   const isValidData = useCallback((): boolean => {
@@ -1035,6 +1180,8 @@ const TradeProposalModal = ({
   const handleClose = useCallback(() => {
     // Reset any necessary state here
     setMessage(null);
+    setIsInShippingSuccessFlow(false);
+    setHasShippingLabelBeenCreated(false);
     onClose();
   }, [onClose]);
 
@@ -1609,6 +1756,182 @@ const TradeProposalModal = ({
                 >
                   Close
                 </button>
+              </div>
+            </div>
+          )}
+
+          {step === "waiting_for_other_user_shipping" && existingProposal && (
+            <div className="space-y-6 p-6">
+              {renderMessage()}
+              {renderTradeDetails()}
+
+              <div className="text-center space-y-6">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100">
+                  <Clock className="h-6 w-6 text-yellow-600" />
+                </div>
+                <div>
+                  <h4 className="text-xl font-semibold text-gray-900 mb-2">
+                    Waiting for Shipping Confirmation
+                  </h4>
+                  <p className="text-gray-600 mb-4">
+                    Waiting for {otherUser.username} to create their shipping
+                    label and ship their package.
+                  </p>
+                </div>
+
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <h5 className="font-medium text-blue-900 mb-2">
+                    Your Shipping Status:
+                  </h5>
+                  <div className="flex items-center justify-center space-x-2 text-sm text-blue-800">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span>Label created and ready to ship</span>
+                  </div>
+                  {labelUrl && (
+                    <div className="mt-3">
+                      <a
+                        href={labelUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download="shipping-label.pdf"
+                        className="inline-flex items-center text-sm text-blue-700 hover:text-blue-800"
+                      >
+                        <svg
+                          className="w-4 h-4 mr-1"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        Download Your Shipping Label
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                  <h5 className="font-medium text-yellow-900 mb-2">
+                    Other User Status:
+                  </h5>
+                  <div className="flex items-center justify-center space-x-2 text-sm text-yellow-800">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>
+                      Waiting for {otherUser.username} to create shipping label
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex justify-center">
+                  <button
+                    onClick={onClose}
+                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === "ready_for_delivery_confirmation" && existingProposal && (
+            <div className="space-y-6 p-6">
+              {renderMessage()}
+              {renderTradeDetails()}
+
+              <div className="text-center space-y-6">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100">
+                  <Truck className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h4 className="text-xl font-semibold text-gray-900 mb-2">
+                    Ready for Delivery Confirmation
+                  </h4>
+                  <p className="text-gray-600 mb-4">
+                    Both you and {otherUser.username} have created shipping
+                    labels. Once you receive your package, confirm delivery to
+                    complete the trade.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                    <h5 className="font-medium text-green-900 mb-2">
+                      Your Shipping:
+                    </h5>
+                    <div className="flex items-center justify-center space-x-2 text-sm text-green-800">
+                      <CheckCircle className="h-4 w-4" />
+                      <span>Label created and shipped</span>
+                    </div>
+                    {((isProposer && existingProposal.proposer_label_url) ||
+                      (!isProposer &&
+                        existingProposal.recipient_label_url)) && (
+                      <div className="mt-2">
+                        <a
+                          href={
+                            isProposer
+                              ? existingProposal.proposer_label_url
+                              : existingProposal.recipient_label_url
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download="shipping-label.pdf"
+                          className="text-xs text-green-700 hover:text-green-800"
+                        >
+                          View your label
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                    <h5 className="font-medium text-green-900 mb-2">
+                      {otherUser.username}'s Shipping:
+                    </h5>
+                    <div className="flex items-center justify-center space-x-2 text-sm text-green-800">
+                      <CheckCircle className="h-4 w-4" />
+                      <span>Label created and shipped</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <h5 className="font-medium text-blue-900 mb-2">Important:</h5>
+                  <p className="text-sm text-blue-800">
+                    Only confirm delivery once you have physically received and
+                    inspected your package. This action will complete the trade
+                    and cannot be undone.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <button
+                    onClick={handleConfirmDelivery}
+                    disabled={isProcessing}
+                    className="flex-1 max-w-xs flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span>Confirming...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-5 w-5" />
+                        <span>Confirm Delivery Received</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           )}

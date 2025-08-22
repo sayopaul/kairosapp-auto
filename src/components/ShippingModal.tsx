@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, CheckCircle, Loader2, MapPin, Truck } from "lucide-react";
 import { shippoService, type ShippingRate } from "../services/shippoService";
+import { useTradeProposals } from "../hooks/useTradeProposals";
 
 interface Address {
   id: string;
@@ -96,6 +97,17 @@ const ShippingModal = ({
   const [rates, setRates] = useState<ShippingRate[]>([]);
   const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
   const [labelUrl, setLabelUrl] = useState<string>("");
+  const { updateProposal, getProposalById, updateShippingStatus } =
+    useTradeProposals(user?.id);
+  const proposal = getProposalById(tradeId);
+
+  // Debug logging
+  console.log("ShippingModal Debug:", {
+    tradeId,
+    userId: user?.id,
+    proposal,
+    proposalId: proposal?.id,
+  });
   const [formData, setFormData] = useState(() => {
     // Use the default shipping preference if available
     const defaultPref =
@@ -365,6 +377,7 @@ const ShippingModal = ({
         (addr) => addr.id === selectedAddressId
       );
       if (!selectedAddress) {
+        console.log("No selected address found");
         throw new Error("Please select a shipping address");
       }
 
@@ -386,6 +399,7 @@ const ShippingModal = ({
         (addr) => addr.is_default
       );
       if (!recipientDefaultAddress) {
+        console.log("No recipient address found");
         throw new Error("Recipient address not found");
       }
 
@@ -433,6 +447,54 @@ const ShippingModal = ({
       // Move to confirmation step
       console.log("Moving to confirmation step");
       setStep("confirmation");
+      if (!proposal) {
+        console.error("No proposal found for trade ID:", tradeId);
+        return;
+      }
+
+      updateShippingStatus(proposal.id, {
+        trackingNumber: labelResponse.tracking_number,
+        carrier: labelResponse.rate?.provider || "USPS",
+        labelUrl: labelResponse.label_url,
+        isProposer,
+        status: "shipping_confirmed",
+      });
+
+      console.log("Updating proposal with ID:", proposal.id);
+      const updateData = {
+        status: "shipping_confirmed" as const,
+        shipping_method: "mail" as const,
+        tracking_number: labelResponse.tracking_number,
+        carrier: labelResponse.rate?.provider || "USPS",
+        label_url: labelResponse.label_url,
+        updated_at: new Date().toISOString(),
+        ...(isProposer
+          ? {
+              proposer_label_url: labelResponse.label_url,
+              proposer_shipping_confirmed: true,
+            }
+          : {
+              recipient_label_url: labelResponse.label_url,
+              recipient_shipping_confirmed: true,
+            }),
+      };
+
+      console.log("Update data:", updateData);
+
+      updateProposal(proposal.id, updateData);
+
+      // Notify parent component
+      onShippingComplete(
+        labelResponse.tracking_number,
+        labelResponse.rate?.provider || "USPS",
+        labelResponse.label_url,
+        isProposer
+      );
+
+      // Move to confirmation step
+
+      console.log("Proposal after update:", proposal);
+      console.log("Proposal ID used for update:", proposal?.id);
     } catch (err) {
       console.error("Error in handlePayment:", err);
       const errorMessage =
@@ -456,7 +518,11 @@ const ShippingModal = ({
     onShippingComplete,
     onShippingError,
     recipientShippingPreferences,
+    proposal,
+    updateProposal,
   ]);
+
+  // console.log(proposal)
 
   const renderCheckRecipientStep = () => {
     const defaultRecipientPref =
