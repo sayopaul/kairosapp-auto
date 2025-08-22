@@ -977,9 +977,10 @@ const TradeProposalModal = ({
       }
 
       // Keep the old fields for backward compatibility
-      updateData.tracking_number = trackingNumber;
-      updateData.carrier = carrier;
-      updateData.label_url = labelUrl;
+      // Update: We are not using these fields anymore so it is redundant to keep them. It leaves a vunerability for the future.
+      // updateData.tracking_number = trackingNumber;
+      // updateData.carrier = carrier;
+      // updateData.label_url = labelUrl;
 
       if (!existingProposal) {
         console.error("No existing proposal found");
