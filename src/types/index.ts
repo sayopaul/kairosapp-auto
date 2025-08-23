@@ -68,6 +68,8 @@ export interface TradeProposal {
   shipping_rate?: any;
   proposer_label_url?: string;
   recipient_label_url?: string;
+  proposer_tracking_number?: string;
+  recipient_tracking_number?: string;
 }
 
 export interface TradeScore {

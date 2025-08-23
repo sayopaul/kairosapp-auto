@@ -24,6 +24,7 @@ import { supabase } from "../lib/supabase";
 import ShippingPreferenceForm from "./ShippingPreferenceForm";
 import ShippingMethodSelector from "./ShippingMethodSelector";
 import ShippingModal from "./ShippingModal";
+import ShippingModalNew from "./NewShippingModal";
 
 // Types
 type ModalStep =
@@ -1817,12 +1818,23 @@ const TradeProposalModal = ({
                   <h5 className="font-medium text-yellow-900 mb-2">
                     Other User Status:
                   </h5>
-                  <div className="flex items-center justify-center space-x-2 text-sm text-yellow-800">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>
-                      Waiting for {otherUser.username} to create shipping label
-                    </span>
-                  </div>
+                  {existingProposal.recipient_shipping_confirmed ? (
+                    <div className="flex items-center justify-center space-x-2 text-sm text-yellow-800">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>
+                        Waiting for {otherUser.username} to create shipping
+                        label
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center space-x-2 text-sm text-yellow-800">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span>
+                        {otherUser.username} has created their shipping label
+                        and is ready to ship
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-center">
@@ -2047,7 +2059,7 @@ const TradeProposalModal = ({
         </div>
       </div>
 
-      {isShippingModalOpen && existingProposal && user && (
+      {/* {isShippingModalOpen && existingProposal && user && (
         <ShippingModal
           isOpen={isShippingModalOpen}
           onClose={() => setShippingModalOpen(false)}
@@ -2066,6 +2078,18 @@ const TradeProposalModal = ({
           onRequestRecipientAddress={handleRequestRecipientAddress}
           shippingPreferences={shippingPreferences}
           recipientShippingPreferences={recipientPrefs}
+        />
+      )} */}
+      {isShippingModalOpen && existingProposal && user && (
+        <ShippingModalNew
+          isOpen={isShippingModalOpen}
+          onClose={() => setShippingModalOpen(false)}
+          shippingPreferences={shippingPreferences}
+          recipientShippingPreferences={recipientPrefs}
+          user={user}
+          otherUser={otherUser}
+          proposal={existingProposal}
+          isProposer={user.id === existingProposal.proposer_id}
         />
       )}
     </>

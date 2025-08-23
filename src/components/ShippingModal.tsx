@@ -437,12 +437,12 @@ const ShippingModal = ({
       setLabelUrl(labelResponse.label_url);
 
       // Notify parent component
-      onShippingComplete(
-        labelResponse.tracking_number,
-        labelResponse.rate?.provider || "USPS",
-        labelResponse.label_url,
-        isProposer
-      );
+      // onShippingComplete(
+      //   labelResponse.tracking_number,
+      //   labelResponse.rate?.provider || "USPS",
+      //   labelResponse.label_url,
+      //   isProposer
+      // );
 
       // Move to confirmation step
       console.log("Moving to confirmation step");
@@ -464,7 +464,6 @@ const ShippingModal = ({
       const updateData = {
         status: "shipping_confirmed" as const,
         shipping_method: "mail" as const,
-        tracking_number: labelResponse.tracking_number,
         carrier: labelResponse.rate?.provider || "USPS",
         label_url: labelResponse.label_url,
         updated_at: new Date().toISOString(),
@@ -472,10 +471,12 @@ const ShippingModal = ({
           ? {
               proposer_label_url: labelResponse.label_url,
               proposer_shipping_confirmed: true,
+              // proposer_tracking_number: labelResponse.tracking_number,
             }
           : {
               recipient_label_url: labelResponse.label_url,
               recipient_shipping_confirmed: true,
+              // recipient_tracking_number: labelResponse.tracking_number,
             }),
       };
 
