@@ -3,8 +3,13 @@ import { ArrowLeftRight, Clock, Check, X, Truck, MapPin } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTradeProposals } from '../hooks/useTradeProposals';
 import TradeProposalList from './TradeProposalList';
+import { NavigationTab } from '../types';
 
-const TradeProposalTab: React.FC = () => {
+interface TradeProposalTabProps {
+  onTabChange?: (tab: NavigationTab) => void;
+}
+
+const TradeProposalTab: React.FC<TradeProposalTabProps> = ({ onTabChange }) => {
   
   const { user } = useAuth();
   const { proposals, loading } = useTradeProposals(user?.id);
@@ -59,7 +64,7 @@ const TradeProposalTab: React.FC = () => {
       </div>
       
       {/* Proposals List */}
-      <TradeProposalList />
+      <TradeProposalList onTabChange={onTabChange} />
     </div>
   );
 };

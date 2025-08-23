@@ -72,14 +72,19 @@ interface ShippingModalNewProps {
   user: User;
   /** Recipient address */
   otherUser: User;
-  proposal: TradeProposal
+  proposal: TradeProposal;
   isProposer: boolean;
 }
 
 /**
  * Enumeration of possible steps in the shipping modal flow
  */
-type Step = "rates" | "confirm_shipping" | "confirmation" | "address" | "check_recipient";
+type Step =
+  | "rates"
+  | "confirm_shipping"
+  | "confirmation"
+  | "address"
+  | "check_recipient";
 
 /**
  * NewShippingModal Component

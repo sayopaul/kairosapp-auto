@@ -2,10 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeftRight, Check, X, Clock, Truck, MapPin, Filter, Search, Loader2,AlertTriangle,RefreshCw, CheckCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTradeProposals } from '../hooks/useTradeProposals';
-import { TradeProposal } from '../types';
+import { TradeProposal, NavigationTab } from '../types';
 import TradeProposalModal from './TradeProposalModal';
 
-const TradeProposalList: React.FC = () => {
+interface TradeProposalListProps {
+  onTabChange?: (tab: NavigationTab) => void;
+}
+
+const TradeProposalList: React.FC<TradeProposalListProps> = ({ onTabChange }) => {
   console.log('TradeProposalList: Component rendering');
 
   const { user } = useAuth();
@@ -587,6 +591,7 @@ const TradeProposalList: React.FC = () => {
         isBundle={selectedProposal?.match?.is_bundle}
         user1Cards={selectedProposal?.match?.user1_cards}
         user2Cards={selectedProposal?.match?.user2_cards}
+        onTabChange={onTabChange}
       />
 
       {/* {showModal && (

@@ -30,7 +30,7 @@ function AppContent() {
       case 'matches':
         return <Matches onTabChange={setActiveTab} />;
       case 'proposals':
-        return <TradeProposalTab />;
+        return <TradeProposalTab onTabChange={setActiveTab} />;
       case 'collection':
         return <Collection />;
       case 'chat':

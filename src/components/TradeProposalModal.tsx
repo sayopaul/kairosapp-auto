@@ -6,7 +6,7 @@ import {
   useTradeProposalForMatch,
 } from "../hooks/useTradeProposals";
 import { useShippingPreferences } from "../hooks/useShippingPreferences";
-import { Card, ShippingPreference, TradeProposal } from "../types";
+import { Card, ShippingPreference, TradeProposal, NavigationTab } from "../types";
 import {
   AlertCircle,
   Truck,
@@ -25,6 +25,7 @@ import ShippingPreferenceForm from "./ShippingPreferenceForm";
 import ShippingMethodSelector from "./ShippingMethodSelector";
 import ShippingModal from "./ShippingModal";
 import ShippingModalNew from "./NewShippingModal";
+import ShippingMethodSelectionModal from "./ShippingMethodSelectionModal";
 
 // Types
 type ModalStep =
@@ -61,6 +62,7 @@ interface TradeProposalModalProps {
   isBundle?: boolean;
   user1Cards?: Card[];
   user2Cards?: Card[];
+  onTabChange?: (tab: NavigationTab) => void;
 }
 
 const TradeProposalModal = ({
@@ -75,6 +77,7 @@ const TradeProposalModal = ({
   isBundle = false,
   user1Cards = [],
   user2Cards = [],
+  onTabChange,
 }: TradeProposalModalProps): JSX.Element | null => {
   // State management
   const [step, setStep] = useState<ModalStep>("propose");
@@ -94,6 +97,10 @@ const TradeProposalModal = ({
   const [existingProposal, setExistingProposal] =
     useState<TradeProposal | null>(null);
   const [isShippingModalOpen, setShippingModalOpen] = useState(false);
+  const [
+    isShippingMethodSelectionModalOpen,
+    setIsShippingMethodSelectionModalOpen,
+  ] = useState(false);
   const [showGetRatesButton, setShowGetRatesButton] = useState(false);
   const [trackingNumber, setTrackingNumber] = useState("");
   const [carrier, setCarrier] = useState("");
@@ -967,6 +974,38 @@ const TradeProposalModal = ({
     }
   };
 
+  // Handle shipping method selection modal
+  const handleOpenShippingMethodSelection = () => {
+    setIsShippingMethodSelectionModalOpen(true);
+  };
+
+  const handleCloseShippingMethodSelection = () => {
+    setIsShippingMethodSelectionModalOpen(false);
+  };
+
+  const handleSelectMail = () => {
+    setIsShippingMethodSelectionModalOpen(false);
+    setShippingModalOpen(true);
+  };
+
+  const handleBackToShippingMethodSelection = () => {
+    setShippingModalOpen(false);
+    setIsShippingMethodSelectionModalOpen(true);
+  };
+
+  const handleSelectMeetup = () => {
+    setIsShippingMethodSelectionModalOpen(false);
+    // Navigate to chat section to coordinate meetup details
+    if (onTabChange) {
+      onTabChange('chat');
+    } else {
+      setMessage({
+        type: "info",
+        text: "Chat feature will be opened to coordinate meetup details.",
+      });
+    }
+  };
+
   // Handle address form success
   const handleAddressFormSuccess = useCallback(() => {
     setShowAddressForm(false);
@@ -1293,17 +1332,41 @@ const TradeProposalModal = ({
           {/* Modal Header */}
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {getModalTitle()}
-                </h2>
-                <p className="text-sm text-gray-600 mt-1">
-                  {getModalDescription()}
-                </p>
+              <div className="flex items-center space-x-4">
+                {/* Back to Exchange Method button - show when shipping modal is open */}
+                <button
+                  onClick={handleBackToShippingMethodSelection}
+                  className="flex items-center space-x-2 px-2 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-all duration-200 border border-gray-200 hover:border-gray-300"
+                  title="Back to Exchange Method Selection"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                  <span className="hidden sm:inline">Back</span>
+                </button>
+
+                <div className="flex-1">
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    {getModalTitle()}
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {getModalDescription()}
+                  </p>
+                </div>
               </div>
               <button
                 onClick={handleClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors duration     -200"
+                className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
               >
                 <X className="h-6 w-6" />
               </button>
@@ -1777,12 +1840,11 @@ const TradeProposalModal = ({
                   <Truck className="h-5 w-5 text-blue-600 mt-0.5" />
                   <div>
                     <h4 className="font-medium text-blue-900">
-                      Ready to Create Shipping Label
+                      Choose Exchange Method
                     </h4>
                     <p className="text-sm text-blue-800 mt-1">
-                      Your shipping details have been confirmed. Click "Get
-                      Rates" to create shipping labels and complete the trade
-                      setup.
+                      Select how you'd like to exchange cards with{" "}
+                      {otherUser.username}.
                     </p>
                   </div>
                 </div>
@@ -1790,11 +1852,11 @@ const TradeProposalModal = ({
 
               <div className="flex space-x-4">
                 <button
-                  onClick={handleGetRates}
+                  onClick={handleOpenShippingMethodSelection}
                   className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200"
                 >
                   <Truck className="h-5 w-5" />
-                  <span>Get Rates</span>
+                  <span>Choose Exchange Method</span>
                 </button>
                 <button
                   onClick={onClose}
@@ -2240,6 +2302,15 @@ const TradeProposalModal = ({
           isProposer={user.id === existingProposal.proposer_id}
         />
       )}
+
+      {/* Shipping Method Selection Modal */}
+      <ShippingMethodSelectionModal
+        isOpen={isShippingMethodSelectionModalOpen}
+        onClose={handleCloseShippingMethodSelection}
+        onSelectMail={handleSelectMail}
+        onSelectMeetup={handleSelectMeetup}
+        otherUser={otherUser}
+      />
     </>
   );
 };
