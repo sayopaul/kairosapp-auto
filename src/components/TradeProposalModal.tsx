@@ -354,164 +354,6 @@ const TradeProposalModal = ({
     fetchRecipientPreferences,
   ]);
 
-  // Determine user roles and other user data
-
-  // Update step based on proposal status
-  // useEffect(() => {
-  //   if (!existingProposal || !isOpen) return;
-
-  //   console.log(
-  //     "Updating step based on proposal status:",
-  //     existingProposal.status
-  //   );
-
-  //   if (existingProposal.status === "proposed") {
-  //     setStep(isRecipient ? "accept" : "propose");
-  //   } else if (existingProposal.status === "accepted_by_recipient") {
-  //     setStep(isProposer ? "confirm" : "accept");
-  //   } else if (
-  //     existingProposal.status === "shipping_pending" ||
-  //     existingProposal.status === "shipping_confirmed"
-  //   ) {
-  //     setStep("shipping");
-  //     const method = existingProposal.shipping_method as
-  //       | "mail"
-  //       | "local_meetup"
-  //       | undefined;
-  //     setShippingMethod(method || "mail");
-  //   } else if (existingProposal.status === "completed") {
-  //     setStep("complete");
-  //   }
-  // }, [existingProposal, isRecipient, isProposer, isOpen]);
-  // useEffect(() => {
-  //   if (!existingProposal || !isOpen) return;
-
-  //   console.log(
-  //     "Updating step based on proposal status:",
-  //     existingProposal.status
-  //   );
-
-  //   if (existingProposal.status === "proposed") {
-  //     setStep(isRecipient ? "accept" : "propose");
-  //   } else if (existingProposal.status === "accepted_by_recipient") {
-  //     setStep(isProposer ? "confirm" : "accept");
-  //   } else if (
-  //     existingProposal.status === "shipping_pending" ||
-  //     existingProposal.status === "shipping_confirmed"
-  //   ) {
-  //     // Check if we should be in the create_label step
-  //     // Don't override the step if showGetRatesButton is true (indicating user is ready to create labels)
-  //     if (showGetRatesButton) {
-  //       setStep("create_label");
-  //     } else {
-  //       setStep("shipping");
-  //     }
-  //     const method = existingProposal.shipping_method as
-  //       | "mail"
-  //       | "local_meetup"
-  //       | undefined;
-  //     setShippingMethod(method || "mail");
-  //   } else if (existingProposal.status === "completed") {
-  //     setStep("complete");
-  //   }
-  // }, [existingProposal, isRecipient, isProposer, isOpen, showGetRatesButton]);
-
-  // useEffect(() => {
-  //   if (!existingProposal || !isOpen) return;
-
-  //   // Don't override step if we're in the shipping success flow
-  //   if (isInShippingSuccessFlow) {
-  //     return;
-  //   }
-
-  //   console.log(
-  //     "Updating step based on proposal status:",
-  //     existingProposal.status
-  //   );
-  //   console.log("existingProposal", existingProposal);
-
-  //   if (existingProposal.status === "proposed") {
-  //     setStep(isRecipient ? "accept" : "propose");
-  //   } else if (existingProposal.status === "accepted_by_recipient") {
-  //     setStep(isProposer ? "confirm" : "accept");
-  //   } else if (existingProposal.status === "shipping_pending") {
-  //     // Check if user has already created their label
-  //     const userShippingConfirmed = isProposer
-  //       ? existingProposal.proposer_shipping_confirmed
-  //       : existingProposal.recipient_shipping_confirmed;
-
-  //     if (userShippingConfirmed) {
-  //       // User has already created their label, show appropriate step
-  //       const otherUserShippingConfirmed = isProposer
-  //         ? existingProposal.recipient_shipping_confirmed
-  //         : existingProposal.proposer_shipping_confirmed;
-
-  //       if (otherUserShippingConfirmed) {
-  //         setStep("ready_for_delivery_confirmation");
-  //       } else {
-  //         setStep("user_label_created");
-  //       }
-  //     } else {
-  //       setStep("shipping");
-  //     }
-
-  //     const method = existingProposal.shipping_method as
-  //       | "mail"
-  //       | "local_meetup"
-  //       | undefined;
-  //     setShippingMethod(method || "mail");
-  //   } else if (existingProposal.status === "shipping_confirmed") {
-  //     // Check shipping confirmation status instead of label URLs
-  //     const userShippingConfirmed = isProposer
-  //       ? existingProposal.proposer_shipping_confirmed
-  //       : existingProposal.recipient_shipping_confirmed;
-  //     const otherUserShippingConfirmed = isProposer
-  //       ? existingProposal.recipient_shipping_confirmed
-  //       : existingProposal.proposer_shipping_confirmed;
-
-  //     if (userShippingConfirmed) {
-  //       // Current user has created their label
-  //       if (otherUserShippingConfirmed) {
-  //         // Both users have created labels - ready for delivery confirmation
-  //         setStep("ready_for_delivery_confirmation");
-  //       } else {
-  //         // Only current user has created label - show their label and wait for other user
-  //         setStep("user_label_created");
-  //       }
-  //     } else {
-  //       // Current user hasn't created label yet
-  //       if (otherUserShippingConfirmed) {
-  //         // Other user has created their label, notify current user
-  //         setMessage({
-  //           type: "info",
-  //           text: `${otherUser.username} has already created their shipping label. Please create yours to proceed.`,
-  //         });
-  //       }
-
-  //       if (showGetRatesButton) {
-  //         setStep("create_label");
-  //       } else {
-  //         setStep("shipping");
-  //       }
-  //     }
-
-  //     const method = existingProposal.shipping_method as
-  //       | "mail"
-  //       | "local_meetup"
-  //       | undefined;
-  //     setShippingMethod(method || "mail");
-  //   } else if (existingProposal.status === "completed") {
-  //     setStep("complete");
-  //   }
-  // }, [
-  //   existingProposal,
-  //   isRecipient,
-  //   isProposer,
-  //   isOpen,
-  //   showGetRatesButton,
-  //   isInShippingSuccessFlow,
-  // ]);
-
   useEffect(() => {
     if (!existingProposal || !isOpen) return;
 
@@ -709,11 +551,22 @@ const TradeProposalModal = ({
       setIsProcessing(true);
       setMessage(null);
 
-      await handleUpdateProposal(existingProposal.id, {
-        status: "completed",
-        updated_at: new Date().toISOString(),
-        completed_at: new Date().toISOString(),
-      });
+      if (
+        existingProposal.proposer_shipping_confirmed &&
+        existingProposal.recipient_shipping_confirmed
+      ) {
+        await handleUpdateProposal(existingProposal.id, {
+          status: "completed",
+          updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+        });
+      }
+
+      // await handleUpdateProposal(existingProposal.id, {
+      //   status: "completed",
+      //   updated_at: new Date().toISOString(),
+      //   completed_at: new Date().toISOString(),
+      // });
 
       setMessage({
         type: "success",
@@ -1448,7 +1301,7 @@ const TradeProposalModal = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 {/* Back to Exchange Method button - show when shipping modal is open */}
-                <button
+                {/* <button
                   onClick={handleBackToShippingMethodSelection}
                   className="flex items-center space-x-2 px-2 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-all duration-200 border border-gray-200 hover:border-gray-300"
                   title="Back to Exchange Method Selection"
@@ -1467,7 +1320,7 @@ const TradeProposalModal = ({
                     />
                   </svg>
                   <span className="hidden sm:inline">Back</span>
-                </button>
+                </button> */}
 
                 <div className="flex-1">
                   <h2 className="text-xl font-semibold text-gray-900">

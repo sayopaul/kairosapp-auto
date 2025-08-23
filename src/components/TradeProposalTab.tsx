@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { ArrowLeftRight, Clock, Check, X, Truck, MapPin } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTradeProposals } from '../hooks/useTradeProposals';
-import TradeProposalList from './TradeProposalList';
+import { TradeProposalList } from "./TradeProposalList";
 import { NavigationTab } from '../types';
 
 interface TradeProposalTabProps {
