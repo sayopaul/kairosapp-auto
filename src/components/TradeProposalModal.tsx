@@ -36,6 +36,7 @@ type ModalStep =
   | "waiting_for_label"
   | "waiting_for_other_user_shipping"
   | "ready_for_delivery_confirmation"
+  | "user_label_created"
   | "complete";
 
 interface TradeProposalModalProps {
@@ -388,32 +389,59 @@ const TradeProposalModal = ({
     } else if (existingProposal.status === "accepted_by_recipient") {
       setStep(isProposer ? "confirm" : "accept");
     } else if (existingProposal.status === "shipping_pending") {
-      setStep("shipping");
+      // Check if user has already created their label
+      const userShippingConfirmed = isProposer
+        ? existingProposal.proposer_shipping_confirmed
+        : existingProposal.recipient_shipping_confirmed;
+
+      if (userShippingConfirmed) {
+        // User has already created their label, show appropriate step
+        const otherUserShippingConfirmed = isProposer
+          ? existingProposal.recipient_shipping_confirmed
+          : existingProposal.proposer_shipping_confirmed;
+
+        if (otherUserShippingConfirmed) {
+          setStep("ready_for_delivery_confirmation");
+        } else {
+          setStep("user_label_created");
+        }
+      } else {
+        setStep("shipping");
+      }
+
       const method = existingProposal.shipping_method as
         | "mail"
         | "local_meetup"
         | undefined;
       setShippingMethod(method || "mail");
     } else if (existingProposal.status === "shipping_confirmed") {
-      // Check who has created labels and set appropriate step
-      const userLabelUrl = isProposer
-        ? existingProposal.proposer_label_url
-        : existingProposal.recipient_label_url;
-      const otherUserLabelUrl = isProposer
-        ? existingProposal.recipient_label_url
-        : existingProposal.proposer_label_url;
+      // Check shipping confirmation status instead of label URLs
+      const userShippingConfirmed = isProposer
+        ? existingProposal.proposer_shipping_confirmed
+        : existingProposal.recipient_shipping_confirmed;
+      const otherUserShippingConfirmed = isProposer
+        ? existingProposal.recipient_shipping_confirmed
+        : existingProposal.proposer_shipping_confirmed;
 
-      if (userLabelUrl) {
+      if (userShippingConfirmed) {
         // Current user has created their label
-        if (otherUserLabelUrl) {
+        if (otherUserShippingConfirmed) {
           // Both users have created labels - ready for delivery confirmation
           setStep("ready_for_delivery_confirmation");
         } else {
-          // Only current user has created label - waiting for other user
-          setStep("waiting_for_other_user_shipping");
+          // Only current user has created label - show their label and wait for other user
+          setStep("user_label_created");
         }
       } else {
         // Current user hasn't created label yet
+        if (otherUserShippingConfirmed) {
+          // Other user has created their label, notify current user
+          setMessage({
+            type: "info",
+            text: `${otherUser.username} has already created their shipping label. Please create yours to proceed.`,
+          });
+        }
+
         if (showGetRatesButton) {
           setStep("create_label");
         } else {
@@ -544,17 +572,17 @@ const TradeProposalModal = ({
       // Close the shipping modal
       setShippingModalOpen(false);
 
-      // Check if other user has also created their label
-      const otherUserLabelUrl = isProposer
-        ? existingProposal?.recipient_label_url
-        : existingProposal?.proposer_label_url;
+      // Check if other user has also created their label using shipping confirmation flags
+      const otherUserShippingConfirmed = isProposer
+        ? existingProposal?.recipient_shipping_confirmed
+        : existingProposal?.proposer_shipping_confirmed;
 
-      if (otherUserLabelUrl) {
+      if (otherUserShippingConfirmed) {
         // Both users have created labels - ready for delivery confirmation
         setStep("ready_for_delivery_confirmation");
       } else {
-        // Only current user has created label - waiting for other user
-        setStep("waiting_for_other_user_shipping");
+        // Only current user has created label - show their label and wait for other user
+        setStep("user_label_created");
       }
     },
     [existingProposal]
@@ -1187,6 +1215,7 @@ const TradeProposalModal = ({
     setMessage(null);
     setIsInShippingSuccessFlow(false);
     setHasShippingLabelBeenCreated(false);
+    setShowGetRatesButton(false);
     onClose();
   }, [onClose]);
 
@@ -1213,6 +1242,12 @@ const TradeProposalModal = ({
         return "Create Shipping Label";
       case "waiting_for_label":
         return "Waiting for Shipping Label";
+      case "user_label_created":
+        return "Your Label is Ready";
+      case "waiting_for_other_user_shipping":
+        return "Waiting for Other User";
+      case "ready_for_delivery_confirmation":
+        return "Ready for Delivery Confirmation";
       case "complete":
         return "Trade Complete";
       default:
@@ -1237,6 +1272,12 @@ const TradeProposalModal = ({
         return "Create shipping labels for the trade";
       case "waiting_for_label":
         return "Waiting for shipping label to be created";
+      case "user_label_created":
+        return "Your shipping label has been created successfully";
+      case "waiting_for_other_user_shipping":
+        return "Waiting for the other user to create their shipping label";
+      case "ready_for_delivery_confirmation":
+        return "Both users have created labels, ready to confirm delivery";
       case "complete":
         return "Trade has been completed successfully";
       default:
@@ -2003,6 +2044,109 @@ const TradeProposalModal = ({
                 >
                   Close
                 </button>
+              </div>
+            </div>
+          )}
+
+          {step === "user_label_created" && existingProposal && (
+            <div className="space-y-6 p-6">
+              {renderMessage()}
+              {renderTradeDetails()}
+
+              <div className="text-center space-y-6">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <h4 className="text-xl font-semibold text-gray-900 mb-2">
+                    Your Shipping Label is Ready!
+                  </h4>
+                  <p className="text-gray-600 mb-4">
+                    You've successfully created your shipping label.{" "}
+                    {otherUser.username} is still working on creating their
+                    label.
+                  </p>
+                </div>
+
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <h5 className="font-medium text-green-900 mb-2">
+                    Your Shipping Status:
+                  </h5>
+                  <div className="flex items-center justify-center space-x-2 text-sm text-green-800">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span>Label created and ready to ship</span>
+                  </div>
+                  {((isProposer && existingProposal.proposer_label_url) ||
+                    (!isProposer && existingProposal.recipient_label_url)) && (
+                    <div className="mt-3">
+                      <a
+                        href={
+                          isProposer
+                            ? existingProposal.proposer_label_url
+                            : existingProposal.recipient_label_url
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download="shipping-label.pdf"
+                        className="inline-flex items-center text-sm text-green-700 hover:text-green-800"
+                      >
+                        <svg
+                          className="w-4 h-4 mr-1"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        Download Your Shipping Label
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                  <h5 className="font-medium text-yellow-900 mb-2">
+                    Other User Status:
+                  </h5>
+                  <div className="flex items-center justify-center space-x-2 text-sm text-yellow-800">
+                    <Clock className="h-4 w-4 text-yellow-600" />
+                    <span>
+                      Waiting for {otherUser.username} to create their shipping
+                      label
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <h5 className="font-medium text-blue-900 mb-2">
+                    Next Steps:
+                  </h5>
+                  <ul className="text-sm text-blue-800 space-y-1 text-left">
+                    <li>
+                      • Print and attach your shipping label to your package
+                    </li>
+                    <li>• Ship your package within 24 hours</li>
+                    <li>
+                      • You'll be notified when {otherUser.username} creates
+                      their label
+                    </li>
+                    <li>
+                      • Once both labels are created, you can confirm delivery
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="flex justify-center">
+                  <button
+                    onClick={onClose}
+                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           )}
