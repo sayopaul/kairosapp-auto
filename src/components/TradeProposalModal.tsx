@@ -23,10 +23,8 @@ import { supabase } from "../lib/supabase";
 
 // Import components
 import ShippingPreferenceForm from "./ShippingPreferenceForm";
-import ShippingMethodSelector from "./ShippingMethodSelector";
 import ShippingModal from "./ShippingModal";
 import ShippingModalNew from "./NewShippingModal";
-import ShippingMethodSelectionModal from "./ShippingMethodSelectionModal";
 
 // Types
 type ModalStep =
@@ -99,10 +97,6 @@ const TradeProposalModal = ({
   const [existingProposal, setExistingProposal] =
     useState<TradeProposal | null>(null);
   const [isShippingModalOpen, setShippingModalOpen] = useState(false);
-  const [
-    isShippingMethodSelectionModalOpen,
-    setIsShippingMethodSelectionModalOpen,
-  ] = useState(false);
   const [showGetRatesButton, setShowGetRatesButton] = useState(false);
   const [trackingNumber, setTrackingNumber] = useState("");
   const [carrier, setCarrier] = useState("");
@@ -382,33 +376,101 @@ const TradeProposalModal = ({
         );
       }
     } else if (existingProposal.status === "shipping_pending") {
-      // Handle shipping_pending logic...
-      const userShippingConfirmed = isProposer
-        ? existingProposal.proposer_shipping_confirmed
-        : existingProposal.recipient_shipping_confirmed;
+      // Check if both users have confirmed shipping
+      if (
+        existingProposal.proposer_shipping_confirmed &&
+        existingProposal.recipient_shipping_confirmed
+      ) {
+        setStep("ready_for_delivery_confirmation");
+      } else {
+        // Determine current user's shipping confirmation status
+        const currentUserShippingConfirmed = isProposer
+          ? existingProposal.proposer_shipping_confirmed
+          : existingProposal.recipient_shipping_confirmed;
 
-      if (userShippingConfirmed) {
         const otherUserShippingConfirmed = isProposer
           ? existingProposal.recipient_shipping_confirmed
           : existingProposal.proposer_shipping_confirmed;
 
-        if (otherUserShippingConfirmed) {
-          setStep("ready_for_delivery_confirmation");
-        } else {
+        if (currentUserShippingConfirmed) {
+          // Current user has confirmed shipping, wait for other user
           setStep("user_label_created");
-        }
-      } else {
-        setStep("shipping");
-      }
+        } else {
+          // Current user hasn't confirmed shipping yet
+          if (otherUserShippingConfirmed) {
+            // Other user has confirmed, notify current user
+            setMessage({
+              type: "info",
+              text: `${otherUser.username} has already created their shipping label. Please create yours to proceed.`,
+            });
+          }
 
-      const method = existingProposal.shipping_method as
-        | "mail"
-        | "local_meetup"
-        | undefined;
-      setShippingMethod(method || "mail");
+          // Check if shipping method has been selected
+          const method = existingProposal.shipping_method as
+            | "mail"
+            | "local_meetup"
+            | undefined;
+
+          if (!method) {
+            // No shipping method selected yet, show shipping selection
+            setStep("select_shipping_method");
+          } else if (showGetRatesButton) {
+            setStep("create_label");
+          } else {
+            setStep("shipping");
+          }
+
+          setShippingMethod(method || "mail");
+        }
+      }
     } else if (existingProposal.status === "shipping_confirmed") {
-      // Handle shipping_confirmed logic...
-      // (keep existing logic)
+      // Check if both users have confirmed shipping
+      if (
+        existingProposal.proposer_shipping_confirmed &&
+        existingProposal.recipient_shipping_confirmed
+      ) {
+        setStep("ready_for_delivery_confirmation");
+      } else {
+        // Determine current user's shipping confirmation status
+        const currentUserShippingConfirmed = isProposer
+          ? existingProposal.proposer_shipping_confirmed
+          : existingProposal.recipient_shipping_confirmed;
+
+        const otherUserShippingConfirmed = isProposer
+          ? existingProposal.recipient_shipping_confirmed
+          : existingProposal.proposer_shipping_confirmed;
+
+        if (currentUserShippingConfirmed) {
+          // Current user has confirmed shipping, wait for other user
+          setStep("user_label_created");
+        } else {
+          // Current user hasn't confirmed shipping yet
+          if (otherUserShippingConfirmed) {
+            // Other user has confirmed, notify current user
+            setMessage({
+              type: "info",
+              text: `${otherUser.username} has already created their shipping label. Please create yours to proceed.`,
+            });
+          }
+
+          // Check if shipping method has been selected
+          const method = existingProposal.shipping_method as
+            | "mail"
+            | "local_meetup"
+            | undefined;
+
+          if (!method) {
+            // No shipping method selected yet, show shipping selection
+            setStep("select_shipping_method");
+          } else if (showGetRatesButton) {
+            setStep("create_label");
+          } else {
+            setStep("shipping");
+          }
+
+          setShippingMethod(method || "mail");
+        }
+      }
     } else if (existingProposal.status === "completed") {
       setStep("complete");
     }
@@ -817,42 +879,6 @@ const TradeProposalModal = ({
     }
   }, [existingProposal, user, deleteProposal, onClose]);
 
-  // Handle selecting shipping method
-  const handleSelectShippingMethod = useCallback(
-    async (method: "mail" | "local_meetup") => {
-      if (!existingProposal || !user) return;
-
-      try {
-        setIsProcessing(true);
-        setMessage(null);
-
-        await handleUpdateProposal(existingProposal.id, {
-          shipping_method: method,
-        });
-
-        setShippingMethod(method);
-
-        setMessage({
-          type: "success",
-          text: `Shipping method set to ${
-            method === "mail" ? "Mail" : "Local Meetup"
-          }`,
-        });
-
-        await memoizedRefetchProposal();
-      } catch (error) {
-        console.error("Error selecting shipping method:", error);
-        setMessage({
-          type: "error",
-          text: "Failed to set shipping method",
-        });
-      } finally {
-        setIsProcessing(false);
-      }
-    },
-    [existingProposal, user, handleUpdateProposal, memoizedRefetchProposal]
-  );
-
   // Handle confirming shipping details
   const handleConfirmShipping = useCallback(async () => {
     if (!existingProposal || !user) return;
@@ -936,28 +962,8 @@ const TradeProposalModal = ({
     }
   };
 
-  // Handle shipping method selection modal
-  const handleOpenShippingMethodSelection = () => {
-    setIsShippingMethodSelectionModalOpen(true);
-  };
-
-  const handleCloseShippingMethodSelection = () => {
-    setIsShippingMethodSelectionModalOpen(false);
-  };
-
-  const handleSelectMail = () => {
-    setIsShippingMethodSelectionModalOpen(false);
-    setShippingModalOpen(true);
-  };
-
-  const handleBackToShippingMethodSelection = () => {
-    setShippingModalOpen(false);
-    setIsShippingMethodSelectionModalOpen(true);
-  };
-
   const handleSelectMeetup = () => {
     handleShippingMethodSelected("local_meetup");
-    setIsShippingMethodSelectionModalOpen(false);
     // Navigate to chat section to coordinate meetup details
     if (onTabChange) {
       onTabChange("chat");
@@ -1664,15 +1670,6 @@ const TradeProposalModal = ({
             <div className="space-y-6 p-6">
               {renderMessage()}
 
-              {/* Shipping Method Selection */}
-              {/* {!existingProposal.shipping_method && (
-                <ShippingMethodSelector
-                  onSelect={handleSelectShippingMethod}
-                  loading={isProcessing}
-                  onCancel={onClose}
-                />
-              )} */}
-
               {/* Mail Shipping Details */}
               {existingProposal.shipping_method === "mail" && (
                 <div>
@@ -1891,7 +1888,7 @@ const TradeProposalModal = ({
 
               <div className="flex space-x-4">
                 <button
-                  onClick={handleOpenShippingMethodSelection}
+                  onClick={() => setStep("select_shipping_method")}
                   className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200"
                 >
                   <Truck className="h-5 w-5" />
