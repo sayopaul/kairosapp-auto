@@ -894,7 +894,11 @@ const TradeProposalModal = ({
 
       setMessage({
         type: "success",
-        text: "Shipping details confirmed!",
+        text: `Shipping details confirmed! ${
+          existingProposal.proposer_shipping_confirmed
+            ? "Proposer Confirmed"
+            : "Recipient Confirmed"
+        }`,
       });
 
       // setStep("create_label");

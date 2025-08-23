@@ -120,8 +120,7 @@ export default function ShippingModalNew({
   );
 
   // Trade proposals hooks
-  const { updateProposal, getProposalById, updateShippingStatus } =
-    useTradeProposals(user?.id);
+  const { updateProposal, updateShippingStatus } = useTradeProposals(user?.id);
 
   /**
    * Handles the process of fetching shipping rates for a given recipient address
@@ -236,7 +235,9 @@ export default function ShippingModalNew({
     [selectedAddressId, user, otherUser, shippingPreferences]
   );
 
-  const [labelResponse, setLabelResponse] = useState<LabelResponse | null>(null);
+  const [labelResponse, setLabelResponse] = useState<LabelResponse | null>(
+    null
+  );
 
   const handleCreateLabel = useCallback(async () => {
     // TODO: Implement label creation logic
@@ -306,11 +307,12 @@ export default function ShippingModalNew({
       console.log("Label response:", labelResponse);
 
       const updateData = {
-        status: "shipping_confirmed" as const,
+        // status: "shipping_confirmed" as const,
         shipping_method: "mail" as const,
         carrier: labelResponse.rate?.provider || "USPS",
         label_url: labelResponse.label_url,
         updated_at: new Date().toISOString(),
+        recipient_tracking_number: labelResponse.tracking_number,
         ...(isProposer
           ? {
               proposer_label_url: labelResponse.label_url,
@@ -339,7 +341,6 @@ export default function ShippingModalNew({
       });
 
       console.log("Proposal updated:", proposal);
-
     } catch (error) {
       console.error("Error in handleCreateLabel:", error);
       const errorMessage =
@@ -350,7 +351,18 @@ export default function ShippingModalNew({
     } finally {
       setIsLoading(false);
     }
-  }, [selectedAddressId, user, otherUser, recipientShippingPreferences, shippingPreferences, proposal, isProposer, updateProposal, updateShippingStatus]);
+  }, [
+    selectedAddressId,
+    user,
+    otherUser,
+    recipientShippingPreferences,
+    shippingPreferences,
+    proposal,
+    isProposer,
+    updateProposal,
+    updateShippingStatus,
+    selectedRate,
+  ]);
 
   const handleSelectRate = (rate: ShippingRate) => {
     setSelectedRate(rate);
@@ -523,6 +535,36 @@ export default function ShippingModalNew({
               />
             )}
 
+            {/* Step 1: Address Selection */}
+            {step === "address" && (
+              <ShippingAddressStep
+                shippingPreferences={shippingPreferences}
+                selectedAddressId={selectedAddressId}
+                onAddressSelect={setSelectedAddressId}
+                onBack={onClose}
+                onContinue={() => {
+                  const defaultRecipientPref =
+                    recipientShippingPreferences?.find((p) => p.is_default) ||
+                    recipientShippingPreferences?.[0];
+                  if (defaultRecipientPref?.street1) {
+                    setStep("rates");
+                    handleGetRates(defaultRecipientPref);
+                  } else {
+                    setStep("check_recipient");
+                  }
+                }}
+              />
+            )}
+
+            {/* Step 2: Check Recipient Address */}
+            {step === "check_recipient" && (
+              <ShippingCheckRecipientStep
+                recipientShippingPreferences={recipientShippingPreferences}
+                recipient={otherUser}
+                onBack={() => setStep("address")}
+              />
+            )}
+
             {/* Step 3: Confirmation */}
             {step === "confirmation" && labelResponse && (
               <ShippingLabelConfirmationStep
@@ -539,32 +581,230 @@ export default function ShippingModalNew({
 }
 
 // Address Step
-const ShippingAddressStep = () => {
+interface ShippingAddressStepProps {
+  shippingPreferences: ShippingPreference[];
+  selectedAddressId: string;
+  onAddressSelect: (addressId: string) => void;
+  onBack: () => void;
+  onContinue: () => void;
+}
+
+const ShippingAddressStep = ({
+  shippingPreferences,
+  selectedAddressId,
+  onAddressSelect,
+  onBack,
+  onContinue,
+}: ShippingAddressStepProps) => {
+  const hasValidAddress = shippingPreferences.some(
+    (pref) => pref.street1 && pref.city && pref.state && pref.zip
+  );
+
   return (
-    <div>
-      <h2>Address</h2>
+    <div className="space-y-6">
+      <div className="text-center">
+        <h4 className="text-xl font-semibold text-gray-900 mb-2">
+          Select Shipping Address
+        </h4>
+        <p className="text-gray-600">
+          Choose the address you'll be shipping from
+        </p>
+      </div>
+
+      {shippingPreferences.length === 0 ? (
+        <div className="text-center py-8">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Package className="h-8 w-8 text-gray-400" />
+          </div>
+          <h5 className="text-lg font-medium text-gray-900 mb-2">
+            No Shipping Addresses Found
+          </h5>
+          <p className="text-gray-600 mb-4">
+            You need to add a shipping address to your profile before you can
+            ship items.
+          </p>
+          <button
+            onClick={onBack}
+            className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 font-medium transition-colors"
+          >
+            Go to Profile
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-3">
+            {shippingPreferences.map((address) => (
+              <div
+                key={address.id}
+                className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                  selectedAddressId === address.id
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-200 hover:bg-gray-50"
+                }`}
+                onClick={() => onAddressSelect(address.id)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center mb-2">
+                      <h5 className="font-medium text-gray-900">
+                        {address.address_name || "Shipping Address"}
+                      </h5>
+                      {address.is_default && (
+                        <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                          Default
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-1 text-sm text-gray-700">
+                      <p>{address.street1}</p>
+                      {address.street2 && <p>{address.street2}</p>}
+                      <p>
+                        {address.city}, {address.state} {address.zip}
+                      </p>
+                      <p>{address.country}</p>
+                      {address.phone && <p>{address.phone}</p>}
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <div
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        selectedAddressId === address.id
+                          ? "border-blue-500 bg-blue-500"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      {selectedAddressId === address.id && (
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
+            <button
+              onClick={onBack}
+              className="flex-1 bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 font-medium transition-colors"
+            >
+              Back
+            </button>
+            <button
+              onClick={onContinue}
+              disabled={!selectedAddressId || !hasValidAddress}
+              className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              Continue
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 };
 
 // Check Recipient Step
-const ShippingCheckRecipientStep = () => {
+interface ShippingCheckRecipientStepProps {
+  recipientShippingPreferences: ShippingPreference[];
+  recipient: User;
+  onBack: () => void;
+}
+
+const ShippingCheckRecipientStep = ({
+  recipientShippingPreferences,
+  recipient,
+  onBack,
+}: ShippingCheckRecipientStepProps) => {
+  const hasValidRecipientAddress = recipientShippingPreferences.some(
+    (pref) => pref.street1 && pref.city && pref.state && pref.zip
+  );
+
   return (
-    <div>
-      <h2>Check Recipient</h2>
+    <div className="space-y-6">
+      <div className="text-center">
+        <h4 className="text-xl font-semibold text-gray-900 mb-2">
+          Recipient Address Required
+        </h4>
+        <p className="text-gray-600">
+          {recipient.displayName || "The recipient"} needs to add their shipping
+          address
+        </p>
+      </div>
+
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+        <div className="flex items-start">
+          <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5 mr-3 flex-shrink-0" />
+          <div>
+            <h5 className="text-sm font-medium text-amber-800 mb-2">
+              Action Required
+            </h5>
+            <div className="text-sm text-amber-700">
+              <p>
+                {recipient.displayName || "The recipient"} must add their
+                shipping address to their profile before you can proceed with
+                shipping.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {recipientShippingPreferences.length > 0 && !hasValidRecipientAddress && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <h5 className="font-medium text-gray-900 mb-2">Current Addresses</h5>
+          <div className="space-y-2">
+            {recipientShippingPreferences.map((address) => (
+              <div key={address.id} className="text-sm text-gray-600">
+                <p>{address.street1}</p>
+                {address.street2 && <p>{address.street2}</p>}
+                <p>
+                  {address.city}, {address.state} {address.zip}
+                </p>
+                <p>{address.country}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start">
+          <div className="flex-shrink-0">
+            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+              <span className="text-blue-600 font-semibold text-sm">i</span>
+            </div>
+          </div>
+          <div className="ml-3">
+            <h5 className="text-sm font-medium text-blue-800 mb-2">
+              What happens next?
+            </h5>
+            <div className="text-sm text-blue-700">
+              <ul className="list-disc list-inside space-y-1">
+                <li>
+                  You'll need to wait for{" "}
+                  {recipient.displayName || "the recipient"} to add their
+                  address
+                </li>
+                <li>
+                  Once they add their address, you can return here to continue
+                </li>
+                <li>You'll receive a notification when they're ready</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button
+        onClick={onBack}
+        className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 font-medium transition-colors"
+      >
+        Back
+      </button>
     </div>
   );
 };
-
-// Rates Step
-const ShippingRatesStep = () => {
-  return (
-    <div>
-      <h2>Rates</h2>
-    </div>
-  );
-};
-
 
 // Confirm Shipping Step
 interface ShippingConfirmationStepProps {
@@ -597,21 +837,33 @@ const ShippingConfirmationStep = ({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h4 className="text-xl font-semibold text-gray-900 mb-2">Confirm Shipping Details</h4>
-        <p className="text-gray-600">Please review your shipping information before proceeding</p>
+        <h4 className="text-xl font-semibold text-gray-900 mb-2">
+          Confirm Shipping Details
+        </h4>
+        <p className="text-gray-600">
+          Please review your shipping information before proceeding
+        </p>
       </div>
 
       {/* Shipping Rate Summary */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-center justify-between">
           <div>
-            <h5 className="font-medium text-blue-900">Selected Shipping Method</h5>
+            <h5 className="font-medium text-blue-900">
+              Selected Shipping Method
+            </h5>
             <p className="text-blue-700">{selectedRate.servicelevel.name}</p>
-            <p className="text-sm text-blue-600">{selectedRate.provider} • {selectedRate.duration_terms}</p>
+            <p className="text-sm text-blue-600">
+              {selectedRate.provider} • {selectedRate.duration_terms}
+            </p>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold text-blue-900">${selectedRate.amount}</div>
-            <div className="text-sm text-blue-600">{selectedRate.estimated_days} business days</div>
+            <div className="text-2xl font-bold text-blue-900">
+              ${selectedRate.amount}
+            </div>
+            <div className="text-sm text-blue-600">
+              {selectedRate.estimated_days} business days
+            </div>
           </div>
         </div>
       </div>
@@ -630,7 +882,9 @@ const ShippingConfirmationStep = ({
             <p className="font-medium">{sender.displayName || "Sender"}</p>
             <p>{senderAddress.street1}</p>
             {senderAddress.street2 && <p>{senderAddress.street2}</p>}
-            <p>{senderAddress.city}, {senderAddress.state} {senderAddress.zip}</p>
+            <p>
+              {senderAddress.city}, {senderAddress.state} {senderAddress.zip}
+            </p>
             <p>{senderAddress.country}</p>
             {senderAddress.phone && <p>{senderAddress.phone}</p>}
             {sender.email && <p>{sender.email}</p>}
@@ -646,10 +900,15 @@ const ShippingConfirmationStep = ({
             <h5 className="font-medium text-gray-900">Recipient Address</h5>
           </div>
           <div className="space-y-1 text-sm text-gray-700">
-            <p className="font-medium">{recipient.displayName || "Recipient"}</p>
+            <p className="font-medium">
+              {recipient.displayName || "Recipient"}
+            </p>
             <p>{recipientAddress.street1}</p>
             {recipientAddress.street2 && <p>{recipientAddress.street2}</p>}
-            <p>{recipientAddress.city}, {recipientAddress.state} {recipientAddress.zip}</p>
+            <p>
+              {recipientAddress.city}, {recipientAddress.state}{" "}
+              {recipientAddress.zip}
+            </p>
             <p>{recipientAddress.country}</p>
             {recipientAddress.phone && <p> {recipientAddress.phone}</p>}
             {recipient.email && <p>{recipient.email}</p>}
@@ -661,15 +920,27 @@ const ShippingConfirmationStep = ({
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
         <div className="flex items-start">
           <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            <svg
+              className="h-5 w-5 text-amber-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
             </svg>
           </div>
           <div className="ml-3">
-            <h5 className="text-sm font-medium text-amber-800">Important Notes</h5>
+            <h5 className="text-sm font-medium text-amber-800">
+              Important Notes
+            </h5>
             <div className="mt-2 text-sm text-amber-700">
               <ul className="list-disc list-inside space-y-1">
-                <li>Please ensure the package is properly packaged and labeled</li>
+                <li>
+                  Please ensure the package is properly packaged and labeled
+                </li>
                 <li>Include a return address on the package</li>
                 <li>Keep tracking information for your records</li>
                 <li>Ship within 24 hours of creating the label</li>
@@ -699,12 +970,11 @@ const ShippingConfirmationStep = ({
   );
 };
 
-
 // Label Confirmation Step
 interface ShippingLabelConfirmationStepProps {
   labelResponse: LabelResponse;
   onClose: () => void;
-  proposal: TradeProposal;  
+  proposal: TradeProposal;
 }
 
 const ShippingLabelConfirmationStep = ({
@@ -714,13 +984,13 @@ const ShippingLabelConfirmationStep = ({
 }: ShippingLabelConfirmationStepProps) => {
   const handleDownloadLabel = () => {
     if (labelResponse.label_url) {
-      window.open(labelResponse.label_url, '_blank');
+      window.open(labelResponse.label_url, "_blank");
     }
   };
 
   const handleTrackPackage = () => {
     if (labelResponse.tracking_url_provider) {
-      window.open(labelResponse.tracking_url_provider, '_blank');
+      window.open(labelResponse.tracking_url_provider, "_blank");
     }
   };
 
@@ -731,8 +1001,12 @@ const ShippingLabelConfirmationStep = ({
         <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
           <CheckCircle className="h-8 w-8 text-green-600" />
         </div>
-        <h4 className="text-xl font-semibold text-gray-900 mb-2">Shipping Label Created Successfully!</h4>
-        <p className="text-gray-600">Your shipping label has been generated and is ready for download.</p>
+        <h4 className="text-xl font-semibold text-gray-900 mb-2">
+          Shipping Label Created Successfully!
+        </h4>
+        <p className="text-gray-600">
+          Your shipping label has been generated and is ready for download.
+        </p>
       </div>
 
       {/* Label Information */}
@@ -744,17 +1018,25 @@ const ShippingLabelConfirmationStep = ({
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="text-blue-700">Tracking Number:</span>
-            <span className="font-mono text-blue-900">{labelResponse.tracking_number}</span>
+            <span className="font-mono text-blue-900">
+              {proposal.proposer_shipping_confirmed
+                ? proposal.proposer_tracking_number
+                : proposal.recipient_tracking_number}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-blue-700">Status:</span>
-            <span className="text-blue-900 capitalize">{
-              proposal.proposer_shipping_confirmed ? "Proposer Confirmed" : "Recipient Confirmed"
-            }</span>
+            <span className="text-blue-900 capitalize">
+              {proposal.proposer_shipping_confirmed
+                ? "Proposer Confirmed"
+                : "Recipient Confirmed"}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-blue-700">Label ID:</span>
-            <span className="font-mono text-blue-900">{labelResponse.object_id}</span>
+            <span className="font-mono text-blue-900">
+              {labelResponse.object_id}
+            </span>
           </div>
         </div>
       </div>
@@ -768,7 +1050,7 @@ const ShippingLabelConfirmationStep = ({
           <Download className="h-5 w-5 mr-2" />
           Download Shipping Label
         </button>
-        
+
         <button
           onClick={handleTrackPackage}
           className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 font-medium transition-colors flex items-center justify-center"
@@ -783,7 +1065,9 @@ const ShippingLabelConfirmationStep = ({
         <div className="flex items-start">
           <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5 mr-3 flex-shrink-0" />
           <div>
-            <h5 className="text-sm font-medium text-amber-800 mb-2">Important Notes</h5>
+            <h5 className="text-sm font-medium text-amber-800 mb-2">
+              Important Notes
+            </h5>
             <div className="text-sm text-amber-700 space-y-1">
               <p>• Print the shipping label and attach it to your package</p>
               <p>• Ship your package within 24 hours of creating the label</p>
