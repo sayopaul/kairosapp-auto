@@ -549,7 +549,7 @@ export const TradeProposalList: React.FC<{
                       </div>
                     </div>
 
-                    <div>{proposal.id}</div>
+                    {/* <div>{proposal.id}</div> */}
 
                     <div className="flex items-center space-x-3">
                       {isBundle && (

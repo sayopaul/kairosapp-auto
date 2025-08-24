@@ -100,7 +100,7 @@ const TradeProposalModal = ({
   const [showGetRatesButton, setShowGetRatesButton] = useState(false);
   const [trackingNumber, setTrackingNumber] = useState("");
   const [carrier, setCarrier] = useState("");
-  const [labelUrl, setLabelUrl] = useState("");
+  // const [labelUrl, setLabelUrl] = useState("");
   // State for recipient's shipping preferences
   const [recipientPrefs, setRecipientPrefs] = useState<ShippingPreference[]>(
     []
@@ -109,6 +109,7 @@ const TradeProposalModal = ({
     useState(false);
   const [isInShippingSuccessFlow, setIsInShippingSuccessFlow] = useState(false);
   const [isSettingShippingMethod, setIsSettingShippingMethod] = useState(false);
+  const [labelUrl, setLabelUrl] = useState<string | null>("");
 
   // Auth and data hooks
   const { user } = useAuth();
@@ -363,6 +364,7 @@ const TradeProposalModal = ({
     if (isInShippingSuccessFlow || isSettingShippingMethod) {
       return;
     }
+    console.log("existingProposal", existingProposal);
 
     console.log(
       "Updating step based on proposal status:",
@@ -716,7 +718,7 @@ const TradeProposalModal = ({
         recipient_id: otherUser.id,
         // shipping_method: shippingMethod,
         status: "proposed" as const,
-        proposer_address_id: defaultAddress.id,
+        // proposer_address_id: defaultAddress.id,
       });
 
       setMessage({
@@ -2012,6 +2014,7 @@ const TradeProposalModal = ({
                       </a>
                     </div>
                   )}
+                  {/* span{existingProposal.proposer_label_url} */}
                 </div>
 
                 <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
@@ -2231,15 +2234,10 @@ const TradeProposalModal = ({
                     <CheckCircle className="h-4 w-4 text-green-600" />
                     <span>Label created and ready to ship</span>
                   </div>
-                  {((isProposer && existingProposal.proposer_label_url) ||
-                    (!isProposer && existingProposal.recipient_label_url)) && (
+                  {labelUrl && (
                     <div className="mt-3">
                       <a
-                        href={
-                          isProposer
-                            ? existingProposal.proposer_label_url
-                            : existingProposal.recipient_label_url
-                        }
+                        href={labelUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         download="shipping-label.pdf"
@@ -2260,6 +2258,30 @@ const TradeProposalModal = ({
                       </a>
                     </div>
                   )}
+                  {/* {((isProposer && labelUrl) || (!isProposer && labelUrl)) && (
+                    <div className="mt-3">
+                      <a
+                        href={labelUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download="shipping-label.pdf"
+                        className="inline-flex items-center text-sm text-green-700 hover:text-green-800"
+                      >
+                        <svg
+                          className="w-4 h-4 mr-1"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        Download Your Shipping Label
+                      </a>
+                    </div>
+                  )} */}
                 </div>
 
                 <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
@@ -2394,6 +2416,7 @@ const TradeProposalModal = ({
           otherUser={otherUser}
           proposal={existingProposal}
           isProposer={user.id === existingProposal.proposer_id}
+          setLabelUrl={setLabelUrl}
         />
       )}
 

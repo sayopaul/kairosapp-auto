@@ -558,7 +558,9 @@ export function useTradeProposals(userId?: string) {
     updates: {
       trackingNumber?: string;
       carrier?: string;
-      labelUrl?: string;
+      // labelUrl?: string;
+      proposer_label_url?: string;
+      recipient_label_url?: string;
       isProposer: boolean;
       status?: string;
     }
@@ -567,7 +569,14 @@ export function useTradeProposals(userId?: string) {
       setLoading(true);
       setError(null);
 
-      const { trackingNumber, carrier, labelUrl, isProposer, status } = updates;
+      const {
+        trackingNumber,
+        carrier,
+        isProposer,
+        status,
+        proposer_label_url,
+        recipient_label_url,
+      } = updates;
 
       // Prepare the update data
       const updateData: any = {
@@ -582,20 +591,26 @@ export function useTradeProposals(userId?: string) {
       // Update tracking info (keep for backward compatibility)
       if (trackingNumber) updateData.tracking_number = trackingNumber;
       if (carrier) updateData.carrier = carrier;
-      if (labelUrl) updateData.label_url = labelUrl;
+      // if (labelUrl) updateData.label_url = labelUrl;
+      if (proposer_label_url)
+        updateData.proposer_label_url = proposer_label_url;
+      if (recipient_label_url)
+        updateData.recipient_label_url = recipient_label_url;
 
       // Update the appropriate user's specific fields
       if (isProposer) {
         if (trackingNumber)
           updateData.proposer_tracking_number = trackingNumber;
         if (carrier) updateData.proposer_carrier = carrier;
-        if (labelUrl) updateData.proposer_label_url = labelUrl;
+        if (proposer_label_url)
+          updateData.proposer_label_url = proposer_label_url;
         updateData.proposer_shipping_confirmed = true;
       } else {
         if (trackingNumber)
           updateData.recipient_tracking_number = trackingNumber;
         if (carrier) updateData.recipient_carrier = carrier;
-        if (labelUrl) updateData.recipient_label_url = labelUrl;
+        if (recipient_label_url)
+          updateData.recipient_label_url = recipient_label_url;
         updateData.recipient_shipping_confirmed = true;
       }
 

@@ -1,8 +1,15 @@
-import { X, Download, CheckCircle, Package, AlertTriangle, ExternalLink } from "lucide-react";
-import { useEffect, useState, useCallback } from "react";
+import {
+  AlertTriangle,
+  CheckCircle,
+  Download,
+  ExternalLink,
+  Package,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { useTradeProposals } from "../hooks/useTradeProposals";
 import { shippoService, type ShippingRate } from "../services/shippoService";
 import { ShippingPreference, TradeProposal } from "../types";
-import { useTradeProposals } from "../hooks/useTradeProposals";
 
 interface Address {
   id: string;
@@ -76,6 +83,7 @@ interface ShippingModalNewProps {
   otherUser: User;
   proposal: TradeProposal;
   isProposer: boolean;
+  setLabelUrl: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 /**
@@ -107,6 +115,7 @@ export default function ShippingModalNew({
   otherUser,
   proposal,
   isProposer,
+  setLabelUrl,
 }: ShippingModalNewProps) {
   // State management for error handling
   const [error, setError] = useState<string | null>(null);
@@ -313,6 +322,7 @@ export default function ShippingModalNew({
       );
 
       console.log("Label response:", labelResponse);
+      setLabelUrl(labelResponse.label_url);
 
       const updateData = {
         // status: "shipping_confirmed" as const,
@@ -343,9 +353,13 @@ export default function ShippingModalNew({
       console.log("Update data:", updateData);
 
       updateProposal(proposal.id, updateData);
-      updateShippingStatus(proposal.id, {
-        status: "shipping_confirmed" as const,
+      await updateShippingStatus(proposal.id, {
+        status: "shipping_confirmed",
         isProposer,
+        carrier: labelResponse.rate?.provider || "USPS",
+        ...(isProposer
+          ? { proposer_label_url: labelResponse.label_url }
+          : { recipient_label_url: labelResponse.label_url }),
       });
 
       console.log("Proposal updated:", proposal);
@@ -1109,9 +1123,3 @@ const ShippingLabelConfirmationStep = ({
     </div>
   );
 };
-
-
-
-
-
-
