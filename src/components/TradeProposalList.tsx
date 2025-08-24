@@ -204,6 +204,8 @@ export const TradeProposalList: React.FC<{
     return true;
   });
 
+  console.log("proposals", proposals);
+
   console.log("🔍 Filtered proposals:", {
     total: proposals.length,
     filtered: filteredProposals.length,
@@ -549,7 +551,14 @@ export const TradeProposalList: React.FC<{
                       </div>
                     </div>
 
-                    {/* <div>{proposal.id}</div> */}
+                    <div>
+                      {proposal.proposer_label_url ? "proposer_label_url" : ""}
+                    </div>
+                    <div>
+                      {proposal.recipient_label_url
+                        ? "recipient_label_url"
+                        : ""}
+                    </div>
 
                     <div className="flex items-center space-x-3">
                       {isBundle && (

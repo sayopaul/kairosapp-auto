@@ -1990,7 +1990,33 @@ const TradeProposalModal = ({
                     <CheckCircle className="h-4 w-4 text-green-600" />
                     <span>Label created and ready to ship</span>
                   </div>
-                  {labelUrl && (
+                  {existingProposal.proposer_label_url && (
+                    <div className="mt-3">
+                      <a
+                        href={existingProposal.proposer_label_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download="shipping-label.pdf"
+                        className="inline-flex items-center text-sm text-blue-700 hover:text-blue-800"
+                      >
+                        Download Your Shipping Label
+                      </a>
+                    </div>
+                  )}
+                  {existingProposal.recipient_label_url && (
+                    <div className="mt-3">
+                      <a
+                        href={existingProposal.recipient_label_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download="shipping-label.pdf"
+                        className="inline-flex items-center text-sm text-blue-700 hover:text-blue-800"
+                      >
+                        Download Your Shipping Label
+                      </a>
+                    </div>
+                  )}
+                  {/* {labelUrl && (
                     <div className="mt-3">
                       <a
                         href={labelUrl}
@@ -2013,7 +2039,7 @@ const TradeProposalModal = ({
                         Download Your Shipping Label
                       </a>
                     </div>
-                  )}
+                  )} */}
                   {/* span{existingProposal.proposer_label_url} */}
                 </div>
 
@@ -2234,10 +2260,10 @@ const TradeProposalModal = ({
                     <CheckCircle className="h-4 w-4 text-green-600" />
                     <span>Label created and ready to ship</span>
                   </div>
-                  {labelUrl && (
+                  {existingProposal.proposer_label_url && (
                     <div className="mt-3">
                       <a
-                        href={labelUrl}
+                        href={existingProposal.proposer_label_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         download="shipping-label.pdf"
@@ -2254,6 +2280,19 @@ const TradeProposalModal = ({
                             clipRule="evenodd"
                           />
                         </svg>
+                        Download Your Shipping Label
+                      </a>
+                    </div>
+                  )}
+                  {existingProposal.recipient_label_url && (
+                    <div className="mt-3">
+                      <a
+                        href={existingProposal.recipient_label_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download="shipping-label.pdf"
+                        className="inline-flex items-center text-sm text-green-700 hover:text-green-800"
+                      >
                         Download Your Shipping Label
                       </a>
                     </div>

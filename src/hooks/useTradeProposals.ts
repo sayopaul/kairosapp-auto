@@ -217,7 +217,9 @@ export function useTradeProposals(userId?: string) {
           recipient_shipping_confirmed: item.recipient_shipping_confirmed,
           created_at: item.created_at,
           updated_at: item.updated_at,
-          match: match as unknown as TradeMatch
+          proposer_label_url: item.proposer_label_url,
+          recipient_label_url: item.recipient_label_url,
+          match: match as unknown as TradeMatch,
         };
       });
 
