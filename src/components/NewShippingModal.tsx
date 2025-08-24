@@ -1024,9 +1024,13 @@ const ShippingLabelConfirmationStep = ({
           <div className="flex justify-between">
             <span className="text-blue-700">Tracking Number:</span>
             <span className="font-mono text-blue-900">
-              {proposal.proposer_shipping_confirmed
+              {/* {proposal.proposer_shipping_confirmed
                 ? proposal.proposer_tracking_number
-                : proposal.recipient_tracking_number}
+                : proposal.recipient_tracking_number} */}
+              {/* {labelResponse.tracking_number} */}
+              {proposal.proposer_tracking_number ||
+                proposal.recipient_tracking_number ||
+                labelResponse.tracking_number}
             </span>
           </div>
           <div className="flex justify-between">

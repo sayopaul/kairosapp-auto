@@ -689,13 +689,13 @@ const TradeProposalModal = ({
     const defaultAddress =
       shippingPreferences.find((addr) => addr.is_default) ||
       shippingPreferences[0];
-    if (!defaultAddress) {
-      setMessage({
-        type: "error",
-        text: "Please add a shipping address before proposing a trade",
-      });
-      return;
-    }
+    // if (!defaultAddress) {
+    //   setMessage({
+    //     type: "error",
+    //     text: "Please add a shipping address before proposing a trade",
+    //   });
+    //   return;
+    // }
 
     // Check if proposal already exists
     if (existingProposal) {
