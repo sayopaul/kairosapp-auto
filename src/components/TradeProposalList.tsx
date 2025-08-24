@@ -15,10 +15,12 @@ import {
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useTradeProposals } from "../hooks/useTradeProposals";
-import { TradeProposal } from "../types";
+import { TradeProposal, NavigationTab } from "../types";
 import TradeProposalModal from "./TradeProposalModal";
 
-export const TradeProposalList: React.FC = () => {
+export const TradeProposalList: React.FC<{
+  onTabChange?: (tab: NavigationTab) => void;
+}> = ({ onTabChange }) => {
   console.log("TradeProposalList: Component rendering");
 
   const { user } = useAuth();
@@ -648,6 +650,7 @@ export const TradeProposalList: React.FC = () => {
         isBundle={selectedProposal?.match?.is_bundle}
         user1Cards={selectedProposal?.match?.user1_cards}
         user2Cards={selectedProposal?.match?.user2_cards}
+        onTabChange={onTabChange}
       />
 
       {/* {showModal && (

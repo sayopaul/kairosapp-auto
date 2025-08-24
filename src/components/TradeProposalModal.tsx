@@ -108,6 +108,7 @@ const TradeProposalModal = ({
   const [hasShippingLabelBeenCreated, setHasShippingLabelBeenCreated] =
     useState(false);
   const [isInShippingSuccessFlow, setIsInShippingSuccessFlow] = useState(false);
+  const [isSettingShippingMethod, setIsSettingShippingMethod] = useState(false);
 
   // Auth and data hooks
   const { user } = useAuth();
@@ -286,6 +287,7 @@ const TradeProposalModal = ({
 
       try {
         setIsProcessing(true);
+        setIsSettingShippingMethod(true);
         setMessage(null);
 
         await handleUpdateProposal(existingProposal.id, {
@@ -294,6 +296,8 @@ const TradeProposalModal = ({
         });
 
         setShippingMethod(method);
+
+        // Set step to shipping after method is selected
         setStep("shipping");
 
         setMessage({
@@ -312,6 +316,7 @@ const TradeProposalModal = ({
         });
       } finally {
         setIsProcessing(false);
+        setIsSettingShippingMethod(false);
       }
     },
     [existingProposal, user, handleUpdateProposal, memoizedRefetchProposal]
@@ -351,8 +356,8 @@ const TradeProposalModal = ({
   useEffect(() => {
     if (!existingProposal || !isOpen) return;
 
-    // Don't override step if we're in the shipping success flow
-    if (isInShippingSuccessFlow) {
+    // Don't override step if we're in the shipping success flow or setting shipping method
+    if (isInShippingSuccessFlow || isSettingShippingMethod) {
       return;
     }
 
@@ -370,6 +375,7 @@ const TradeProposalModal = ({
       if (!existingProposal.shipping_method) {
         setStep("select_shipping_method");
       } else {
+        // If shipping method is already set, go to shipping step
         setStep("shipping");
         setShippingMethod(
           existingProposal.shipping_method as "mail" | "local_meetup"
@@ -378,6 +384,12 @@ const TradeProposalModal = ({
     } else if (existingProposal.status === "shipping_pending") {
       // Check if both users have confirmed shipping
       if (
+        !existingProposal.proposer_shipping_confirmed &&
+        !existingProposal.recipient_shipping_confirmed
+      ) {
+        // setStep("select_shipping_method");
+        setStep("shipping");
+      } else if (
         existingProposal.proposer_shipping_confirmed &&
         existingProposal.recipient_shipping_confirmed
       ) {
@@ -481,6 +493,7 @@ const TradeProposalModal = ({
     isOpen,
     showGetRatesButton,
     isInShippingSuccessFlow,
+    isSettingShippingMethod,
   ]);
 
   // Fetch shipping preferences on mount
@@ -801,7 +814,7 @@ const TradeProposalModal = ({
         text: "Trade confirmed! Please select a shipping method.",
       });
 
-      // Set step to shipping method selection instead of shipping
+      // Set step to shipping method selection
       setStep("select_shipping_method");
 
       await memoizedRefetchProposal();
