@@ -81,9 +81,9 @@ const TradeProposalModal = ({
 }: TradeProposalModalProps): JSX.Element | null => {
   // State management
   const [step, setStep] = useState<ModalStep>("propose");
-  const [shippingMethod, setShippingMethod] = useState<"mail" | "local_meetup">(
-    "mail"
-  );
+  const [shippingMethod, setShippingMethod] = useState<
+    "mail" | "local_meetup" | null
+  >(null);
   // const [isUpdatingDefault, setIsUpdatingDefault] = useState(false);
   // const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -282,7 +282,7 @@ const TradeProposalModal = ({
   );
 
   const handleShippingMethodSelected = useCallback(
-    async (method: "mail" | "local_meetup") => {
+    async (method: "mail" | "local_meetup" | null) => {
       if (!existingProposal || !user) return;
 
       try {
@@ -316,7 +316,10 @@ const TradeProposalModal = ({
         });
       } finally {
         setIsProcessing(false);
-        setIsSettingShippingMethod(false);
+        // Reset this flag after a small delay to prevent race conditions
+        setTimeout(() => {
+          setIsSettingShippingMethod(false);
+        }, 100);
       }
     },
     [existingProposal, user, handleUpdateProposal, memoizedRefetchProposal]
@@ -371,11 +374,11 @@ const TradeProposalModal = ({
     } else if (existingProposal.status === "accepted_by_recipient") {
       setStep(isProposer ? "confirm" : "accept");
     } else if (existingProposal.status === "confirmed") {
-      // After confirmation, go to shipping method selection if no method is set
+      // After confirmation, go to shipping method selection ONLY if no method is set
       if (!existingProposal.shipping_method) {
         setStep("select_shipping_method");
       } else {
-        // If shipping method is already set, go to shipping step
+        // If shipping method is already set, go to shipping step and set the method
         setStep("shipping");
         setShippingMethod(
           existingProposal.shipping_method as "mail" | "local_meetup"
@@ -387,8 +390,15 @@ const TradeProposalModal = ({
         !existingProposal.proposer_shipping_confirmed &&
         !existingProposal.recipient_shipping_confirmed
       ) {
-        // setStep("select_shipping_method");
-        setStep("shipping");
+        // Only show select_shipping_method if shipping_method is null
+        if (!existingProposal.shipping_method) {
+          setStep("select_shipping_method");
+        } else {
+          setStep("shipping");
+          setShippingMethod(
+            existingProposal.shipping_method as "mail" | "local_meetup"
+          );
+        }
       } else if (
         existingProposal.proposer_shipping_confirmed &&
         existingProposal.recipient_shipping_confirmed
@@ -418,21 +428,17 @@ const TradeProposalModal = ({
           }
 
           // Check if shipping method has been selected
-          const method = existingProposal.shipping_method as
-            | "mail"
-            | "local_meetup"
-            | undefined;
+          const method = existingProposal.shipping_method;
 
           if (!method) {
             // No shipping method selected yet, show shipping selection
             setStep("select_shipping_method");
-          } else if (showGetRatesButton) {
-            setStep("create_label");
           } else {
             setStep("shipping");
           }
 
-          setShippingMethod(method || "mail");
+          // Set shipping method from proposal, don't default to "mail"
+          setShippingMethod(method as "mail" | "local_meetup" | null);
         }
       }
     } else if (existingProposal.status === "shipping_confirmed") {
@@ -466,10 +472,7 @@ const TradeProposalModal = ({
           }
 
           // Check if shipping method has been selected
-          const method = existingProposal.shipping_method as
-            | "mail"
-            | "local_meetup"
-            | undefined;
+          const method = existingProposal.shipping_method;
 
           if (!method) {
             // No shipping method selected yet, show shipping selection
@@ -480,7 +483,8 @@ const TradeProposalModal = ({
             setStep("shipping");
           }
 
-          setShippingMethod(method || "mail");
+          // Set shipping method from proposal, don't default to "mail"
+          setShippingMethod(method as "mail" | "local_meetup" | null);
         }
       }
     } else if (existingProposal.status === "completed") {
@@ -494,6 +498,7 @@ const TradeProposalModal = ({
     showGetRatesButton,
     isInShippingSuccessFlow,
     isSettingShippingMethod,
+    otherUser.username,
   ]);
 
   // Fetch shipping preferences on mount
@@ -709,7 +714,7 @@ const TradeProposalModal = ({
         match_id: matchId,
         proposer_id: user.id,
         recipient_id: otherUser.id,
-        shipping_method: shippingMethod,
+        // shipping_method: shippingMethod,
         status: "proposed" as const,
         proposer_address_id: defaultAddress.id,
       });
@@ -738,7 +743,7 @@ const TradeProposalModal = ({
     isValidData,
     shippingPreferences,
     existingProposal,
-    shippingMethod,
+    // shippingMethod,
     otherUser.id,
     otherUser.username,
     createProposal,
@@ -1607,277 +1612,316 @@ const TradeProposalModal = ({
             </div>
           )}
 
-          {step === "select_shipping_method" && existingProposal && (
-            <div className="space-y-6 p-6">
-              {renderMessage()}
-              {renderTradeDetails()}
+          {step === "select_shipping_method" &&
+            existingProposal &&
+            !existingProposal.shipping_method && (
+              <div className="space-y-6 p-6">
+                {renderMessage()}
+                {renderTradeDetails()}
 
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <div className="flex items-start space-x-3">
-                  <Truck className="h-5 w-5 text-blue-600 mt-0.5" />
-                  <div>
-                    <h4 className="font-medium text-blue-900">
-                      Choose Exchange Method
-                    </h4>
-                    <p className="text-sm text-blue-800 mt-1">
-                      Select how you'd like to exchange cards with{" "}
-                      {otherUser.username}.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button
-                  onClick={() => handleShippingMethodSelected("mail")}
-                  disabled={isProcessing}
-                  className="flex flex-col items-center p-6 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Truck className="h-8 w-8 text-blue-600 mb-2" />
-                  <h5 className="font-medium text-gray-900 mb-1">
-                    Mail Exchange
-                  </h5>
-                  <p className="text-sm text-gray-600 text-center">
-                    Ship cards via postal service with tracking and insurance
-                  </p>
-                </button>
-
-                <button
-                  // onClick={() => handleShippingMethodSelected("local_meetup")}
-                  onClick={handleSelectMeetup}
-                  disabled={isProcessing}
-                  className="flex flex-col items-center p-6 border border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Users className="h-8 w-8 text-green-600 mb-2" />
-                  <h5 className="font-medium text-gray-900 mb-1">
-                    Public Meetup
-                  </h5>
-                  <p className="text-sm text-gray-600 text-center">
-                    Meet in person at a safe, public location
-                  </p>
-                </button>
-              </div>
-
-              {isProcessing && (
-                <div className="flex items-center justify-center">
-                  <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-                  <span className="ml-2 text-sm text-gray-600">
-                    Setting shipping method...
-                  </span>
-                </div>
-              )}
-
-              <div className="flex justify-end">
-                <button
-                  onClick={onClose}
-                  disabled={isProcessing}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === "shipping" && existingProposal && (
-            <div className="space-y-6 p-6">
-              {renderMessage()}
-
-              {/* Mail Shipping Details */}
-              {existingProposal.shipping_method === "mail" && (
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Shipping Details
-                  </h3>
-
-                  {/* Shipping Address Form */}
-                  {showAddressForm ? (
-                    <div className="mb-6">
-                      <ShippingPreferenceForm
-                        onSave={handleAddressFormSuccess}
-                        onCancel={() => setShowAddressForm(false)}
-                      />
-                    </div>
-                  ) : (
-                    <div className="mb-6">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-medium text-gray-900">
-                          Your Shipping Address
-                        </h4>
-                        <button
-                          onClick={() => setShowAddressForm(true)}
-                          className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                        >
-                          {shippingPreferences.length > 0
-                            ? "Add New Address"
-                            : "Add Address"}
-                        </button>
-                      </div>
-
-                      {shippingPreferences.length > 0 ? (
-                        <div className="space-y-3">
-                          {shippingPreferences.map((address) => (
-                            <div
-                              key={address.id}
-                              onClick={() => handleAddressClick(address.id)}
-                              className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
-                                selectedAddressId === address.id
-                                  ? "border-blue-500 bg-blue-50"
-                                  : "border-gray-200 hover:border-gray-300"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <h5 className="font-medium text-gray-900">
-                                    {address.address_name}
-                                  </h5>
-                                  <p className="text-sm text-gray-600">
-                                    {address.street1}
-                                    {address.street2
-                                      ? `, ${address.street2}`
-                                      : ""}
-                                    , {address.city}, {address.state}{" "}
-                                    {address.zip}
-                                  </p>
-                                </div>
-                                {selectedAddressId === address.id && (
-                                  <Check className="h-5 w-5 text-blue-600" />
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                          <div className="flex items-start space-x-3">
-                            <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
-                            <div>
-                              <h4 className="font-medium text-yellow-900">
-                                No Shipping Addresses
-                              </h4>
-                              <p className="text-sm text-yellow-800 mt-1">
-                                Please add a shipping address to continue with
-                                the trade.
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Shipping Instructions */}
-                  {!showAddressForm && (
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
-                      <h4 className="font-medium text-blue-900 mb-2">
-                        Shipping Instructions
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <div className="flex items-start space-x-3">
+                    <Truck className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-blue-900">
+                        Choose Exchange Method
                       </h4>
-                      <ul className="text-sm text-blue-800 space-y-1">
-                        <li>
-                          • Package cards securely with protective sleeves and
-                          rigid mailers
-                        </li>
-                        <li>
-                          • Include a note with your username and trade details
-                        </li>
-                        <li>• Use tracking and insurance for valuable cards</li>
-                        <li>• Share tracking information in the trade chat</li>
-                        <li>
-                          • Keep your shipping receipt until delivery is
-                          confirmed
-                        </li>
-                      </ul>
+                      <p className="text-sm text-blue-800 mt-1">
+                        Select how you'd like to exchange cards with{" "}
+                        {otherUser.username}.
+                      </p>
                     </div>
-                  )}
-                </div>
-              )}
-
-              {/* Local Meetup Details */}
-              {existingProposal.shipping_method === "local_meetup" && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Local Meetup
-                  </h3>
-
-                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                    <h4 className="font-medium text-green-900 mb-2">
-                      Meetup Safety Guidelines
-                    </h4>
-                    <ul className="text-sm text-green-800 space-y-1">
-                      <li>
-                        • Always meet in a public place (coffee shops, card
-                        stores, malls)
-                      </li>
-                      <li>• Consider meeting during daylight hours</li>
-                      <li>
-                        • Let someone know where you're going and who you're
-                        meeting
-                      </li>
-                      <li>• Bring a friend if possible</li>
-                      <li>
-                        • Inspect cards carefully before completing the trade
-                      </li>
-                      <li>
-                        • Use the chat feature to coordinate meeting details
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="mt-4 flex justify-center">
-                    <button
-                      onClick={() => setStep("create_label")}
-                      className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
-                    >
-                      <MessageCircle className="h-5 w-5" />
-                      <span>Open Chat to Coordinate</span>
-                    </button>
                   </div>
                 </div>
-              )}
 
-              {/* Confirm Shipping Button */}
-              {existingProposal.shipping_method && !showAddressForm && (
-                <div className="flex space-x-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <button
-                    onClick={handleConfirmShipping}
-                    disabled={
-                      isProcessing ||
-                      (existingProposal.shipping_method === "mail" &&
-                        !selectedAddressId)
-                    }
-                    className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                    onClick={() => handleShippingMethodSelected("mail")}
+                    disabled={isProcessing}
+                    className="flex flex-col items-center p-6 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isProcessing ? (
-                      <>
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        <span>Processing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Truck className="h-5 w-5" />
-                        <span>Confirm Shipping</span>
-                      </>
-                    )}
+                    <Truck className="h-8 w-8 text-blue-600 mb-2" />
+                    <h5 className="font-medium text-gray-900 mb-1">
+                      Mail Exchange
+                    </h5>
+                    <p className="text-sm text-gray-600 text-center">
+                      Ship cards via postal service with tracking and insurance
+                    </p>
                   </button>
-                  {existingProposal.shipping_method && showGetRatesButton && (
-                    <button
-                      onClick={handleGetRates}
-                      className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-                    >
-                      Get Rates
-                    </button>
-                  )}
 
+                  <button
+                    // onClick={() => handleShippingMethodSelected("local_meetup")}
+                    onClick={handleSelectMeetup}
+                    disabled={isProcessing}
+                    className="flex flex-col items-center p-6 border border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Users className="h-8 w-8 text-green-600 mb-2" />
+                    <h5 className="font-medium text-gray-900 mb-1">
+                      Public Meetup
+                    </h5>
+                    <p className="text-sm text-gray-600 text-center">
+                      Meet in person at a safe, public location
+                    </p>
+                  </button>
+                </div>
+
+                {isProcessing && (
+                  <div className="flex items-center justify-center">
+                    <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                    <span className="ml-2 text-sm text-gray-600">
+                      Setting shipping method...
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex justify-end">
                   <button
                     onClick={onClose}
-                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                    disabled={isProcessing}
+                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50"
                   >
                     Cancel
                   </button>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+
+          {step === "shipping" &&
+            existingProposal &&
+            existingProposal.shipping_method && (
+              <div className="space-y-6 p-6">
+                {renderMessage()}
+
+                {/* Mail Shipping Details */}
+                {existingProposal.shipping_method === "mail" && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                      Shipping Details
+                    </h3>
+
+                    {/* Shipping Address Form */}
+                    {showAddressForm ? (
+                      <div className="mb-6">
+                        <ShippingPreferenceForm
+                          onSave={handleAddressFormSuccess}
+                          onCancel={() => setShowAddressForm(false)}
+                        />
+                      </div>
+                    ) : (
+                      <div className="mb-6">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-medium text-gray-900">
+                            Your Shipping Address
+                          </h4>
+                          <button
+                            onClick={() => setShowAddressForm(true)}
+                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                          >
+                            {shippingPreferences.length > 0
+                              ? "Add New Address"
+                              : "Add Address"}
+                          </button>
+                        </div>
+
+                        {shippingPreferences.length > 0 ? (
+                          <div className="space-y-3">
+                            {shippingPreferences.map((address) => (
+                              <div
+                                key={address.id}
+                                onClick={() => handleAddressClick(address.id)}
+                                className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
+                                  selectedAddressId === address.id
+                                    ? "border-blue-500 bg-blue-50"
+                                    : "border-gray-200 hover:border-gray-300"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <h5 className="font-medium text-gray-900">
+                                      {address.address_name}
+                                    </h5>
+                                    <p className="text-sm text-gray-600">
+                                      {address.street1}
+                                      {address.street2
+                                        ? `, ${address.street2}`
+                                        : ""}
+                                      , {address.city}, {address.state}{" "}
+                                      {address.zip}
+                                    </p>
+                                  </div>
+                                  {selectedAddressId === address.id && (
+                                    <Check className="h-5 w-5 text-blue-600" />
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                            <div className="flex items-start space-x-3">
+                              <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                              <div>
+                                <h4 className="font-medium text-yellow-900">
+                                  No Shipping Addresses
+                                </h4>
+                                <p className="text-sm text-yellow-800 mt-1">
+                                  Please add a shipping address to continue with
+                                  the trade.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Shipping Instructions */}
+                    {!showAddressForm && (
+                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
+                        <h4 className="font-medium text-blue-900 mb-2">
+                          Shipping Instructions
+                        </h4>
+                        <ul className="text-sm text-blue-800 space-y-1">
+                          <li>
+                            • Package cards securely with protective sleeves and
+                            rigid mailers
+                          </li>
+                          <li>
+                            • Include a note with your username and trade
+                            details
+                          </li>
+                          <li>
+                            • Use tracking and insurance for valuable cards
+                          </li>
+                          <li>
+                            • Share tracking information in the trade chat
+                          </li>
+                          <li>
+                            • Keep your shipping receipt until delivery is
+                            confirmed
+                          </li>
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Local Meetup Details */}
+                {existingProposal.shipping_method === "local_meetup" && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                      Local Meetup
+                    </h3>
+
+                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                      <h4 className="font-medium text-green-900 mb-2">
+                        Meetup Safety Guidelines
+                      </h4>
+                      <ul className="text-sm text-green-800 space-y-1">
+                        <li>
+                          • Always meet in a public place (coffee shops, card
+                          stores, malls)
+                        </li>
+                        <li>• Consider meeting during daylight hours</li>
+                        <li>
+                          • Let someone know where you're going and who you're
+                          meeting
+                        </li>
+                        <li>• Bring a friend if possible</li>
+                        <li>
+                          • Inspect cards carefully before completing the trade
+                        </li>
+                        <li>
+                          • Use the chat feature to coordinate meeting details
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div className="mt-4 flex justify-center">
+                      <button
+                        // onClick={() => setStep("create_label")}
+                        onClick={handleSelectMeetup}
+                        className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
+                      >
+                        <MessageCircle className="h-5 w-5" />
+                        <span>Open Chat to Coordinate</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {step === "shipping" &&
+                  existingProposal &&
+                  !existingProposal.shipping_method && (
+                    <div className="space-y-6 p-6">
+                      <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                        <div className="flex items-start space-x-3">
+                          <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                          <div>
+                            <h4 className="font-medium text-yellow-900">
+                              Shipping Method Required
+                            </h4>
+                            <p className="text-sm text-yellow-800 mt-1">
+                              Please select a shipping method to continue.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-center">
+                        <button
+                          onClick={() => setStep("select_shipping_method")}
+                          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                        >
+                          Select Shipping Method
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                {/* Confirm Shipping Button */}
+                {existingProposal.shipping_method && !showAddressForm && (
+                  <div className="flex space-x-4">
+                    <button
+                      onClick={handleConfirmShipping}
+                      disabled={
+                        isProcessing ||
+                        (existingProposal.shipping_method === "mail" &&
+                          !selectedAddressId)
+                      }
+                      className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          <span>Processing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Truck className="h-5 w-5" />
+                          <span>Confirm Shipping</span>
+                        </>
+                      )}
+                    </button>
+                    {existingProposal.shipping_method && showGetRatesButton && (
+                      <button
+                        onClick={handleGetRates}
+                        className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                      >
+                        Get Rates
+                      </button>
+                    )}
+
+                    <button
+                      onClick={onClose}
+                      className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
           {step === "create_label" && existingProposal && (
             <div className="space-y-6 p-6">

@@ -51,7 +51,7 @@ export interface TradeProposal {
     | "completed"
     | "declined"
     | "cancelled";
-  shipping_method?: "mail" | "local_meetup";
+  shipping_method?: "mail" | "local_meetup" | null;
   proposer_confirmed: boolean;
   recipient_confirmed: boolean;
   proposer_shipping_confirmed: boolean;
