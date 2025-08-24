@@ -2387,6 +2387,7 @@ const TradeProposalModal = ({
         <ShippingModalNew
           isOpen={isShippingModalOpen}
           onClose={() => setShippingModalOpen(false)}
+          onCloseParent={onClose}
           shippingPreferences={shippingPreferences}
           recipientShippingPreferences={recipientPrefs}
           user={user}

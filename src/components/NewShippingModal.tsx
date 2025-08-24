@@ -64,6 +64,8 @@ interface ShippingModalNewProps {
   isOpen: boolean;
   /** Callback function to close the modal */
   onClose: () => void;
+  /** Callback function to close the parent modal (optional) */
+  onCloseParent?: () => void;
   /** Array of user's shipping preferences/addresses */
   shippingPreferences: ShippingPreference[];
   /** Recipient shipping preferences */
@@ -98,6 +100,7 @@ type Step =
 export default function ShippingModalNew({
   isOpen,
   onClose,
+  onCloseParent,
   shippingPreferences = [],
   recipientShippingPreferences = [],
   user,
@@ -1036,9 +1039,14 @@ const ShippingLabelConfirmationStep = ({
           <div className="flex justify-between">
             <span className="text-blue-700">Status:</span>
             <span className="text-blue-900 capitalize">
+              {/* {proposal.proposer_shipping_confirmed
+                ? "Proposer Confirmed"
+                : "Recipient Confirmed"} */}
               {proposal.proposer_shipping_confirmed
                 ? "Proposer Confirmed"
-                : "Recipient Confirmed"}
+                : proposal.recipient_shipping_confirmed
+                ? "Recipient Confirmed"
+                : "Pending"}
             </span>
           </div>
           <div className="flex justify-between">
@@ -1090,7 +1098,10 @@ const ShippingLabelConfirmationStep = ({
 
       {/* Close Button */}
       <button
-        onClick={onClose}
+        onClick={() => {
+          onClose();
+          onCloseParent?.();
+        }}
         className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 font-medium transition-colors"
       >
         Close
