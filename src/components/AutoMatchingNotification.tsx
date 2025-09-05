@@ -1,18 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, X, Zap, ArrowRight, CheckCircle } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
-import { useAutoMatching } from '../hooks/useAutoMatching';
+import { X, Zap, ArrowRight, CheckCircle } from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
+import { useAutoMatching } from "../hooks/useAutoMatching";
+import { NavigationTab } from "../types";
 
-const AutoMatchingNotification: React.FC = () => {
+interface AutoMatchingNotificationProps {
+  onTabChange: (tab: NavigationTab) => void;
+}
+
+const AutoMatchingNotification: React.FC<AutoMatchingNotificationProps> = ({
+  onTabChange,
+}) => {
   const { user } = useAuth();
-  const { recentMatches, loading } = useAutoMatching(user?.id);
+  const { recentMatches } = useAutoMatching(user?.id);
   const [showNotification, setShowNotification] = useState(false);
-  const [dismissedMatches, setDismissedMatches] = useState<Set<string>>(new Set());
+  const [dismissedMatches, setDismissedMatches] = useState<Set<string>>(
+    new Set()
+  );
 
   // Show notification when new matches are found
   useEffect(() => {
     if (recentMatches.length > 0) {
-      const newMatches = recentMatches.filter(match => !dismissedMatches.has(match.id));
+      const newMatches = recentMatches.filter(
+        (match) => !dismissedMatches.has(match.id)
+      );
       if (newMatches.length > 0) {
         setShowNotification(true);
       }
@@ -23,7 +34,7 @@ const AutoMatchingNotification: React.FC = () => {
     setShowNotification(false);
     // Mark current matches as dismissed
     const newDismissed = new Set(dismissedMatches);
-    recentMatches.forEach(match => newDismissed.add(match.id));
+    recentMatches.forEach((match) => newDismissed.add(match.id));
     setDismissedMatches(newDismissed);
   };
 
@@ -36,19 +47,27 @@ const AutoMatchingNotification: React.FC = () => {
       theirCards = isUser1 ? match.user2_cards : match.user1_cards;
       return {
         otherUser: isUser1 ? match.user2?.username : match.user1?.username,
-        myCard: myCards && myCards.length > 0 ? myCards.map((c: any) => c.name).join(', ') : 'Unknown Card(s)',
-        theirCard: theirCards && theirCards.length > 0 ? theirCards.map((c: any) => c.name).join(', ') : 'Unknown Card(s)',
-        score: match.match_score || 0
+        myCard:
+          myCards && myCards.length > 0
+            ? myCards.map((c: any) => c.name).join(", ")
+            : "Unknown Card(s)",
+        theirCard:
+          theirCards && theirCards.length > 0
+            ? theirCards.map((c: any) => c.name).join(", ")
+            : "Unknown Card(s)",
+        score: match.match_score || 0,
       };
     } else {
       const otherUser = isUser1 ? match.user2?.username : match.user1?.username;
       const myCard = isUser1 ? match.user1_card?.name : match.user2_card?.name;
-      const theirCard = isUser1 ? match.user2_card?.name : match.user1_card?.name;
+      const theirCard = isUser1
+        ? match.user2_card?.name
+        : match.user1_card?.name;
       return {
-        otherUser: otherUser || 'Unknown User',
-        myCard: myCard || 'Unknown Card',
-        theirCard: theirCard || 'Unknown Card',
-        score: match.match_score || 0
+        otherUser: otherUser || "Unknown User",
+        myCard: myCard || "Unknown Card",
+        theirCard: theirCard || "Unknown Card",
+        score: match.match_score || 0,
       };
     }
   };
@@ -90,16 +109,24 @@ const AutoMatchingNotification: React.FC = () => {
             <div className="flex-1">
               <div className="flex items-center space-x-2 text-sm text-gray-600 mb-1">
                 <span>Trading with</span>
-                <span className="font-semibold text-gray-900">{matchInfo.otherUser}</span>
+                <span className="font-semibold text-gray-900">
+                  {matchInfo.otherUser}
+                </span>
               </div>
               <div className="flex items-center space-x-2 text-sm">
-                <span className="font-medium text-blue-600">{matchInfo.myCard}</span>
+                <span className="font-medium text-blue-600">
+                  {matchInfo.myCard}
+                </span>
                 <ArrowRight className="h-3 w-3 text-gray-400" />
-                <span className="font-medium text-green-600">{matchInfo.theirCard}</span>
+                <span className="font-medium text-green-600">
+                  {matchInfo.theirCard}
+                </span>
               </div>
             </div>
             <div className="text-right">
-              <div className="text-lg font-bold text-green-600">{matchInfo.score}%</div>
+              <div className="text-lg font-bold text-green-600">
+                {matchInfo.score}%
+              </div>
               <div className="text-xs text-gray-500">Match</div>
             </div>
           </div>
@@ -114,7 +141,7 @@ const AutoMatchingNotification: React.FC = () => {
             <button
               onClick={() => {
                 // Navigate to matches page
-                window.location.hash = '#matches';
+                onTabChange("matches");
                 handleDismiss();
               }}
               className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium"
