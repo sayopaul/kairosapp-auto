@@ -291,9 +291,9 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
       console.log("Match deleted successfully:", matchToDeny.id);
 
       // Refresh matches list
-      // if (refetchMatches) {
-      //   await refetchMatches();
-      // }
+      if (refetchMatches) {
+        await refetchMatches();
+      }
 
       // Close modal
       setShowDenyModal(false);
