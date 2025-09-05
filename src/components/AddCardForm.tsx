@@ -1,25 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, X, Save, AlertCircle, CheckCircle, Zap, Crown } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, X, Save, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useCards } from '../hooks/useCards';
-import { useSubscriptionLimits } from '../hooks/useSubscriptionLimits';
+import { useCardVariants } from '../hooks/useCardVariants';
 import { Card } from '../types';
-import CardSearch from './CardSearch';
-import { TransformedCard } from '../services/pokemonTcgApi';
-import { supabase } from '../lib/supabase';
 
-
-interface AddCardProps {
+interface AddCardFormProps {
   onClose?: () => void;
   onSuccess?: () => void;
   defaultListType?: 'trade' | 'want';
 }
 
-const AddCard: React.FC<AddCardProps> = ({ onClose, onSuccess, defaultListType = 'trade' }) => {
+const AddCardForm: React.FC<AddCardFormProps> = ({ 
+  onClose, 
+  onSuccess, 
+  defaultListType = 'trade' 
+}) => {
   const { user } = useAuth();
   const { addCard, error: cardsError } = useCards(user?.id);
-  const { cards: allCards } = useCards(user?.id);
-  const { checkLimit, currentTier } = useSubscriptionLimits(user?.id);
+  const { variants, loading: variantsLoading, error: variantsError } = useCardVariants();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -30,17 +29,12 @@ const AddCard: React.FC<AddCardProps> = ({ onClose, onSuccess, defaultListType =
     list_type: defaultListType,
     market_price: '',
     image_url: '',
-    variant_type: ''
+    variant_type: '' // New field for card variant
   });
   
-  const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
-  const [cardVariants, setCardVariants] = useState<{variant: string; price_usd: number}[]>([]);
-  const [variantsLoading, setVariantsLoading] = useState(false);
-  const [variantPrice, setVariantPrice] = useState<number | null>(null);
-  const [selectedCard, setSelectedCard] = useState<any | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning' | 'info'; text: string } | null>(null);
-  const [useApiSearch, setUseApiSearch] = useState(true);
 
   const conditionOptions: Card['condition'][] = [
     'Mint',
@@ -50,63 +44,6 @@ const AddCard: React.FC<AddCardProps> = ({ onClose, onSuccess, defaultListType =
     'Heavily Played',
     'Damaged'
   ];
-
-  // Check current card counts
-  const tradeCards = allCards.filter(card => card.list_type === 'trade');
-  const wantCards = allCards.filter(card => card.list_type === 'want');
-
-  // Fetch variants when a card is selected
-  useEffect(() => {
-    const fetchCardVariants = async () => {
-      if (!selectedCard?.id) {
-        setCardVariants([]);
-        setVariantPrice(null);
-        setSelectedVariant(null);
-        return;
-      }
-
-      setVariantsLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('pokemon_variant_pricing')
-          .select('variant, price_usd')
-          .eq('card_id', selectedCard.id)
-          .order('variant', { ascending: true });
-
-        if (error) throw error;
-
-        setCardVariants(data || []);
-        
-        // Reset variant selection when card changes
-        setSelectedVariant(null);
-        setVariantPrice(null);
-      } catch (error) {
-        console.error('Error fetching card variants:', error);
-        setCardVariants([]);
-        setSelectedVariant(null);
-        setVariantPrice(null);
-      } finally {
-        setVariantsLoading(false);
-      }
-    };
-
-    fetchCardVariants();
-  }, [selectedCard?.id]);
-
-  // Update variant price when variant is selected
-  useEffect(() => {
-    if (selectedVariant && cardVariants.length > 0) {
-      const variant = cardVariants.find(v => v.variant === selectedVariant);
-      if (variant && variant.price_usd) {
-        setVariantPrice(variant.price_usd);
-        // Update the market price in form data
-        setFormData(prev => ({
-          ...prev,
-          market_price: variant.price_usd.toString()
-        }));
-      }
-    }
-  }, [selectedVariant, cardVariants]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -121,93 +58,12 @@ const AddCard: React.FC<AddCardProps> = ({ onClose, onSuccess, defaultListType =
     }
   };
 
-  const handleCardSelect = (card: TransformedCard) => {
-    try {
-      console.log('🎯 AddCard: Card selected:', card.name, 'Price:', card.market_price);
-      
-      // Set the selected card to fetch variants
-      setSelectedCard(card);
-      
-      setFormData(prev => ({
-        ...prev,
-        name: card.name,
-        set: card.set,
-        card_number: card.card_number,
-        image_url: card.image_url,
-        market_price: card.market_price.toString()
-      }));
-      setFormData(prev => ({
-        ...prev,
-        variant_type: ''
-      }));
-
-      // Try to get updated pricing from JustTCG API
-      // Disable this for now
-      // JustTcgApiService.searchCardPricing(card.name, card.set).then(pricing => {
-      //   if (pricing) {
-      //     const bestPrice = JustTcgApiService.getBestPrice(pricing);
-      //     if (bestPrice && bestPrice > 0) {
-      //       setFormData(prev => ({
-      //         ...prev,
-      //         market_price: bestPrice.toString()
-      //       }));
-      //       setMessage({
-      //         type: 'success',
-      //         text: `✅ Card details loaded! Updated price from JustTCG: $${bestPrice.toFixed(2)}`
-      //       });
-      //     } else {
-      //       setMessage({
-      //         type: 'success',
-      //         text: `✅ Card details loaded! Market price: $${card.market_price.toFixed(2)} (Pokémon TCG API)`
-      //       });
-      //     }
-      //   } else {
-      //     setMessage({
-      //       type: 'success',
-      //       text: `✅ Card details loaded! Market price: $${card.market_price.toFixed(2)} (Pokémon TCG API)`
-      //     });
-      //   }
-      // }).catch(() => {
-      //   setMessage({
-      //     type: 'success',
-      //     text: `✅ Card details loaded! Market price: $${card.market_price.toFixed(2)} (Pokémon Price Tracker API)`
-      //   });
-      // });
-
-
-       
-      
-      console.log('✅ AddCard: Form data updated successfully');
-    } catch (error) {
-      console.error('Error selecting card:', error);
-      setMessage({
-        type: 'error',
-        text: '❌ Failed to load card details. Please try again.'
-      });
-    }
-  };
-
   const handleVariantChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     setSelectedVariant(value);
-    
-    // Find the selected variant and update price
-    if (value && cardVariants.length > 0) {
-      const variant = cardVariants.find(v => v.variant === value);
-      if (variant && variant.price_usd) {
-        setVariantPrice(variant.price_usd);
-        setFormData(prev => ({
-          ...prev,
-          market_price: variant.price_usd.toString()
-        }));
-      }
-    } else {
-      setVariantPrice(null);
-    }
-    
     setFormData(prev => ({
       ...prev,
-      variant_type: value || ''
+      variant_type: value
     }));
   };
 
@@ -242,23 +98,11 @@ const AddCard: React.FC<AddCardProps> = ({ onClose, onSuccess, defaultListType =
       return;
     }
 
-    // Check subscription limits
-    const currentCount = formData.list_type === 'trade' ? tradeCards.length : wantCards.length;
-    const limitCheck = checkLimit(formData.list_type, currentCount);
-    
-    if (!limitCheck.allowed) {
-      setMessage({ 
-        type: 'warning', 
-        text: limitCheck.message || 'Card limit reached for your subscription tier' 
-      });
-      return;
-    }
-
     setIsSubmitting(true);
     setMessage(null);
 
     try {
-      console.log('Submitting card data...');
+      console.log('Submitting card data with variant...');
       
       const cardData = {
         user_id: user.id,
@@ -276,17 +120,14 @@ const AddCard: React.FC<AddCardProps> = ({ onClose, onSuccess, defaultListType =
 
       const result = await addCard(cardData);
       console.log('Card added successfully:', result);
-      
+
       // Now save to user_cards table with the selected variant
       if (result && selectedVariant) {
-        // Find the variant record to get its ID
-        const variantRecord = cardVariants.find(v => v.variant === selectedVariant);
-        
         const { error: userCardError } = await supabase
           .from('user_cards')
           .insert([{
             user_id: user.id,
-            variant_id: variantRecord?.id || selectedVariant, // Use variant ID if available
+            variant_id: selectedVariant, // This should reference the card_variants.id
             quantity: formData.quantity,
             condition: formData.condition,
             for_trade: formData.list_type === 'trade',
@@ -306,7 +147,7 @@ const AddCard: React.FC<AddCardProps> = ({ onClose, onSuccess, defaultListType =
       
       setMessage({ 
         type: 'success', 
-        text: 'Card added successfully! The auto-matching system will check for potential trades.' 
+        text: 'Card added successfully!' 
       });
       
       // Reset form
@@ -378,59 +219,6 @@ const AddCard: React.FC<AddCardProps> = ({ onClose, onSuccess, defaultListType =
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Auto-matching Feature Notice */}
-          <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
-            <div className="flex items-center space-x-3">
-              <Zap className="h-5 w-5 text-green-600" />
-              <div>
-                <h3 className="font-semibold text-green-900">Auto-Matching Enabled</h3>
-                <p className="text-sm text-green-700">System will automatically find matches when you add this card</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Subscription Limit Warning */}
-          {(() => {
-            const currentCount = formData.list_type === 'trade' ? tradeCards.length : wantCards.length;
-            const limitCheck = checkLimit(formData.list_type, currentCount);
-            
-            if (!limitCheck.allowed) {
-              return (
-                <div className="flex items-start space-x-3 p-4 rounded-lg border bg-orange-50 border-orange-200">
-                  <Crown className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-medium text-orange-900">Subscription Limit Reached</h4>
-                    <p className="text-sm text-orange-800 mt-1">{limitCheck.message}</p>
-                    <p className="text-xs text-orange-700 mt-2">
-                      Current tier: <strong>{currentTier === 'trainer' ? 'Free' : currentTier === 'elite' ? 'Elite Trainer' : 'Master Collector'}</strong>
-                    </p>
-                  </div>
-                </div>
-              );
-            }
-            
-            // Show approaching limit warning
-            const maxCards = formData.list_type === 'trade' ? 
-              (currentTier === 'trainer' ? 10 : Infinity) : 
-              (currentTier === 'trainer' ? 5 : Infinity);
-            
-            if (maxCards !== Infinity && currentCount >= maxCards * 0.8) {
-              return (
-                <div className="flex items-start space-x-3 p-4 rounded-lg border bg-yellow-50 border-yellow-200">
-                  <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-medium text-yellow-900">Approaching Limit</h4>
-                    <p className="text-sm text-yellow-800 mt-1">
-                      You have {currentCount} of {maxCards} {formData.list_type} cards. Consider upgrading for unlimited cards.
-                    </p>
-                  </div>
-                </div>
-              );
-            }
-            
-            return null;
-          })()}
-
           {/* Message Display */}
           {message && (
             <div className={`flex items-center space-x-3 p-4 rounded-lg border ${
@@ -444,8 +232,6 @@ const AddCard: React.FC<AddCardProps> = ({ onClose, onSuccess, defaultListType =
             }`}>
               {message.type === 'success' ? (
                 <CheckCircle className="h-5 w-5 flex-shrink-0" />
-              ) : message.type === 'info' ? (
-                <Zap className="h-5 w-5 flex-shrink-0" />
               ) : (
                 <AlertCircle className="h-5 w-5 flex-shrink-0" />
               )}
@@ -453,110 +239,59 @@ const AddCard: React.FC<AddCardProps> = ({ onClose, onSuccess, defaultListType =
             </div>
           )}
 
-          {/* Search Mode Toggle */}
-          <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Zap className="h-5 w-5 text-blue-600" />
-                <div>
-                  <h3 className="font-semibold text-blue-900">Smart Card Search</h3>
-                  <p className="text-sm text-blue-700">Auto-populate card details and pricing</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setUseApiSearch(!useApiSearch)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                  useApiSearch ? 'bg-blue-600' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                    useApiSearch ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-
-          {/* Card Search or Manual Input */}
-          {useApiSearch ? (
-            <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Search Pokemon Cards *
-            </label>
-            <div className="flex items-center text-xs text-gray-500 mt-1 space-x-2">
-              <span>Search format:</span>
-              <div className="flex items-center space-x-1">
-                <span className="px-2 py-0.5 bg-gray-100 rounded">Card Name</span>
-                <span className="px-1 font-bold text-gray-700">,</span>
-                <span className="px-2 py-0.5 bg-gray-100 rounded">Set Name</span>
-                <span className="px-1 font-bold text-gray-700">,</span>
-                <span className="px-2 py-0.5 bg-gray-100 rounded">Condition</span>
-              </div>
-            </div>
-
-            <p className="text-xs text-gray-400 mt-3 mb-3">
-              Tip: Start typing for suggestions. Include set name for more accurate results.
-            </p>
-
-            <CardSearch 
-              onCardSelect={handleCardSelect} 
-              maxResults={50}
-              placeholder="e.g., Charizard, Base Set, Near Mint (comma separated)"
-            />
-            
-           
-          </div>
-          ) : (
-            <div>
-              <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2">
-                Card Name *
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                placeholder="Enter card name (e.g., Charizard, Pikachu)"
-              />
-              <p className="text-xs text-blue-600 mt-1">
-                💡 Tip: Use exact Pokemon names for better auto-matching (Charizard, Pikachu, Blastoise)
-              </p>
+          {/* Variants Error Display */}
+          {variantsError && (
+            <div className="flex items-center space-x-3 p-4 rounded-lg border bg-red-50 border-red-200 text-red-800">
+              <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              <span className="font-medium">Error loading variants: {variantsError}</span>
             </div>
           )}
+
+          {/* Card Name */}
+          <div>
+            <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2">
+              Card Name *
+            </label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              required
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              placeholder="Enter card name (e.g., Charizard, Pikachu)"
+            />
+          </div>
 
           {/* Card Variant Dropdown */}
           <div>
             <label htmlFor="variant_type" className="block text-sm font-semibold text-gray-700 mb-2">
-              Card Variant {variantPrice && `($${variantPrice.toFixed(2)})`}
+              Card Variant
             </label>
             {variantsLoading ? (
               <div className="flex items-center space-x-2 px-4 py-3 border border-gray-300 rounded-lg bg-gray-50">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
                 <span className="text-gray-600">Loading variants...</span>
               </div>
             ) : (
               <select
                 id="variant_type"
                 name="variant_type"
-                value={selectedVariant || ''}
+                value={selectedVariant}
                 onChange={handleVariantChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
               >
                 <option value="">Select a variant (optional)</option>
-                {cardVariants.map(variant => (
-                  <option key={variant.variant} value={variant.variant}>
-                    {variant.variant} {variant.price_usd ? `- $${variant.price_usd.toFixed(2)}` : ''}
+                {variants.map(variant => (
+                  <option key={variant.id} value={variant.id}>
+                    {variant.description || variant.variant_type}
                   </option>
                 ))}
               </select>
             )}
             <p className="text-xs text-gray-500 mt-1">
-              {selectedCard ? 'Choose a specific variant for this card' : 'Select a card first to see available variants'}
+              Choose a specific variant if applicable (e.g., Holo, Reverse Holo, etc.)
             </p>
           </div>
 
@@ -650,7 +385,7 @@ const AddCard: React.FC<AddCardProps> = ({ onClose, onSuccess, defaultListType =
             </div>
             <div>
               <label htmlFor="market_price" className="block text-sm font-semibold text-gray-700 mb-2">
-                Market Price {useApiSearch && '(Auto-populated)'}
+                Market Price
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
@@ -666,18 +401,13 @@ const AddCard: React.FC<AddCardProps> = ({ onClose, onSuccess, defaultListType =
                   placeholder="0.00"
                 />
               </div>
-              {useApiSearch && (
-                <p className="text-xs text-blue-600 mt-1">
-                  Price automatically updated from PokemonPriceTracker{variantPrice ? ' and variant selection' : ''}
-                </p>
-              )}
             </div>
           </div>
 
           {/* Image URL */}
           <div>
             <label htmlFor="image_url" className="block text-sm font-semibold text-gray-700 mb-2">
-              Image URL {useApiSearch && '(Auto-populated)'}
+              Image URL
             </label>
             <input
               type="url"
@@ -689,10 +419,7 @@ const AddCard: React.FC<AddCardProps> = ({ onClose, onSuccess, defaultListType =
               placeholder="https://example.com/card-image.jpg"
             />
             <p className="text-xs text-gray-500 mt-1">
-              {useApiSearch 
-                ? 'High-quality image automatically loaded from Pokémon TCG API'
-                : 'Leave empty to use default card image'
-              }
+              Leave empty to use default card image
             </p>
           </div>
 
@@ -700,16 +427,12 @@ const AddCard: React.FC<AddCardProps> = ({ onClose, onSuccess, defaultListType =
           <div className="flex space-x-4 pt-4">
             <button
               type="submit"
-              disabled={isSubmitting || (() => {
-                const currentCount = formData.list_type === 'trade' ? tradeCards.length : wantCards.length;
-                const limitCheck = checkLimit(formData.list_type, currentCount);
-                return !limitCheck.allowed;
-              })()}
+              disabled={isSubmitting || variantsLoading}
               className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
             >
               {isSubmitting ? (
                 <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <Loader2 className="h-5 w-5 animate-spin" />
                   <span>Adding Card...</span>
                 </>
               ) : (
@@ -735,4 +458,4 @@ const AddCard: React.FC<AddCardProps> = ({ onClose, onSuccess, defaultListType =
   );
 };
 
-export default AddCard;
+export default AddCardForm;

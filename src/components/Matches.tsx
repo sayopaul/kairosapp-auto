@@ -1,5 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, ArrowLeftRight, TrendingUp, Zap, Brain, Target, RefreshCw, Filter, AlertCircle, Plus, ToggleLeft, ToggleRight, Database, CheckCircle } from 'lucide-react';
+import { 
+  MessageCircle, 
+  ArrowLeftRight, 
+  TrendingUp, 
+  Zap, 
+  Brain, 
+  Target, 
+  RefreshCw, 
+  Filter, 
+  AlertCircle, 
+  Plus, 
+  ToggleLeft, 
+  ToggleRight, 
+  Database, 
+  CheckCircle 
+} from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useMatches } from '../hooks/useMatches';
 import { useMatching } from '../hooks/useMatching';
@@ -10,7 +25,6 @@ import TestMatchmaking from './TestMatchmaking';
 import DebugPanel from './DebugPanel';
 import TradeProposalButton from './TradeProposalButton';
 import { NavigationTab } from '../types';
-import { JustTcgApiService } from '../services/justTcgApiService';
 
 interface MatchesProps {
   onTabChange?: (tab: NavigationTab) => void;
@@ -23,13 +37,14 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
     matches: generatedMatches, 
     loading: generatedLoading, 
     error: matchingError, 
-    generateMatches,
-    progress: matchingProgress,
+    generateMatches, 
+    progress: matchingProgress, 
     status: matchingStatus 
   } = useMatching(user?.id);
   const { cards: tradeCards } = useCards(user?.id, 'trade');
   const { cards: wantCards } = useCards(user?.id, 'want');
   const { proposals } = useTradeProposals(user?.id);
+
   const [showEngine, setShowEngine] = useState(false);
   const [showTest, setShowTest] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
@@ -40,78 +55,52 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
   const [enhancedPricing, setEnhancedPricing] = useState<{ [cardId: string]: { price: number; source: string } }>({});
 
   const isMounted = useRef(true);
-  useEffect(() => { isMounted.current = true; return () => { isMounted.current = false; }; }, []);
 
-  // Fetch enhanced pricing for visible cards
-  // Disable enhanced pricing for now
-  // React.useEffect(() => {
-  //   const updatePricingForVisibleCards = async () => {
-  //     const visibleCards: any[] = [];
-      
-  //     // Collect cards from current matches
-  //     matches.forEach(match => {
-  //       if (match.user1_card) visibleCards.push(match.user1_card);
-  //       if (match.user2_card) visibleCards.push(match.user2_card);
-  //       if (match.user1_cards) visibleCards.push(...match.user1_cards);
-  //       if (match.user2_cards) visibleCards.push(...match.user2_cards);
-  //     });
-      
-  //     // Get unique cards
-  //     const uniqueCards = visibleCards.filter((card, index, self) => 
-  //       card && self.findIndex(c => c?.id === card.id) === index
-  //     );
-      
-  //     if (uniqueCards.length === 0) return;
-      
-  //     try {
-  //       const pricingResults = await JustTcgApiService.batchUpdatePricing(uniqueCards);
-  //       const pricingMap: { [cardId: string]: { price: number; source: string } } = {};
-        
-  //       pricingResults.forEach((pricing, cardId) => {
-  //         pricingMap[cardId] = { price: pricing.price, source: 'JustTCG' };
-  //       });
-        
-  //       setEnhancedPricing(pricingMap);
-  //     } catch (error) {
-  //       console.warn('Failed to update pricing for matches:', error);
-  //     }
-  //   };
-
-  //   if (matches.length > 0) {
-  //     updatePricingForVisibleCards();
-  //   }
-  // }, [matches]);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // Automatically generate matches on mount if user is present
   useEffect(() => {
     if (user?.id) {
       generateMatches();
     }
-  }, [user?.id]);
+  }, [user?.id, generateMatches]);
 
   const fetchCardDetails = async (id: string) => {
     if (cardCache[id] || loadingCards[id]) return;
+
     setLoadingCards((prev) => ({ ...prev, [id]: true }));
+
     try {
       const res = await fetch(`https://api.justtcg.com/v1/cards/${id}`);
       const data = await res.json();
       const card = data?.data;
+
       if (card && isMounted.current) {
-        setCardCache((prev) => ({ ...prev, [id]: {
-          id: card.id,
-          name: card.name,
-          set: card.set?.name || '',
-          rarity: card.rarity || '',
-          market_price: card.cardmarket?.prices?.averageSellPrice || card.tcgplayer?.prices?.normal?.market || 'N/A',
-          image_url: card.images?.small || card.images?.large || '',
-          card_number: card.number || '',
-          condition: card.condition || '',
-        }}));
+        setCardCache((prev) => ({
+          ...prev,
+          [id]: {
+            id: card.id,
+            name: card.name,
+            set: card.set?.name || '',
+            rarity: card.rarity || '',
+            market_price: card.cardmarket?.prices?.averageSellPrice || card.tcgplayer?.prices?.normal?.market || 'N/A',
+            image_url: card.images?.small || card.images?.large || '',
+            card_number: card.number || '',
+            condition: card.condition || '',
+          }
+        }));
       }
     } catch (e) {
       // Optionally handle error
     } finally {
-      if (isMounted.current) setLoadingCards((prev) => ({ ...prev, [id]: false }));
+      if (isMounted.current) {
+        setLoadingCards((prev) => ({ ...prev, [id]: false }));
+      }
     }
   };
 
@@ -121,12 +110,12 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
 
   const filteredMatches = matches.filter(match => {
     if (filterConfidence === 'all') return true;
-    
+
     // Determine confidence based on match score
     let confidence: 'high' | 'medium' | 'low' = 'low';
     if (match.match_score >= 85) confidence = 'high';
     else if (match.match_score >= 70) confidence = 'medium';
-    
+
     return confidence === filterConfidence;
   });
 
@@ -166,7 +155,7 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
             <div className="w-64 mx-auto">
               <div className="bg-gray-200 rounded-full h-2.5">
                 <div 
-                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
                   style={{ width: `${matchingProgress}%` }}
                 ></div>
               </div>
@@ -181,55 +170,54 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl p-8 text-white relative overflow-hidden">
+      <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl p-4 md:p-8 text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 opacity-10 rounded-full -translate-y-32 translate-x-32"></div>
         <div className="relative z-10">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <div className="flex items-center space-x-3 mb-2">
                 <Zap className="h-8 w-8" />
-                <h1 className="text-3xl font-bold">AI-Powered Matches</h1>
+                <h1 className="text-2xl md:text-3xl font-bold">AI-Powered Matches</h1>
               </div>
-              <p className="text-gray-300 text-lg">Smart trading opportunities based on your collection</p>
+              <p className="text-gray-300 text-base md:text-lg">Smart trading opportunities based on your collection</p>
             </div>
-            
-            <div className="flex space-x-3">
+            <div className="flex flex-wrap gap-2 md:gap-3">
               <button
                 onClick={() => setShowEngine(!showEngine)}
-                className="flex items-center space-x-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-lg hover:bg-white/20 transition-all duration-200"
+                className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-lg hover:bg-white/20 transition-all duration-200 text-sm md:text-base"
               >
                 <Brain className="h-5 w-5" />
-                <span>Matching Engine</span>
+                <span className="hidden sm:inline">Matching Engine</span>
+                <span className="sm:hidden">Engine</span>
               </button>
-              
               <button
                 onClick={() => setShowTest(!showTest)}
-                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors duration-200"
+                className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors duration-200 text-sm md:text-base"
               >
                 <Target className="h-5 w-5" />
-                <span>Test Lab</span>
+                <span className="hidden sm:inline">Test Lab</span>
+                <span className="sm:hidden">Test</span>
               </button>
-
               <button
                 onClick={() => setShowDebug(!showDebug)}
-                className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200"
+                className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm md:text-base"
               >
                 <Database className="h-5 w-5" />
-                <span>Debug</span>
+                <span className="hidden sm:inline">Debug</span>
+                <span className="sm:hidden">DB</span>
               </button>
-              
               <button
                 onClick={handleGenerateMatches}
                 disabled={loading}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 text-sm md:text-base"
               >
                 <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
-                <span>Generate Matches</span>
+                <span className="hidden sm:inline">Generate Matches</span>
+                <span className="sm:hidden">Generate</span>
               </button>
             </div>
           </div>
-          
-          <div className="mt-4 flex items-center space-x-6">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 md:flex md:items-center md:space-x-6 md:gap-0">
             <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
               <span className="text-sm text-gray-300">Active Matches:</span>
               <span className="ml-2 text-xl font-bold">{filteredMatches.length}</span>
@@ -253,18 +241,18 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
       {showTest && <TestMatchmaking />}
 
       {/* Match Mode Toggle */}
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 md:p-6 border border-blue-200">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center space-x-3 md:space-x-4">
             <Brain className="h-6 w-6 text-blue-600" />
             <div>
-              <h3 className="text-lg font-semibold text-blue-900">Generated Matches</h3>
-              <p className="text-blue-700">AI-powered matching with advanced algorithms and detailed logging</p>
+              <h3 className="text-base md:text-lg font-semibold text-blue-900">Generated Matches</h3>
+              <p className="text-sm md:text-base text-blue-700">AI-powered matching with advanced algorithms</p>
             </div>
           </div>
           <button
             onClick={() => setUseGeneratedMatches(!useGeneratedMatches)}
-            className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition-colors duration-200"
+            className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition-colors duration-200 self-start md:self-auto"
           >
             {useGeneratedMatches ? (
               <ToggleRight className="h-8 w-8" />
@@ -280,7 +268,7 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
 
       {/* Prerequisites Check */}
       {(tradeCards.length === 0 || wantCards.length === 0) && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 md:p-6">
           <div className="flex items-start space-x-3">
             <AlertCircle className="h-6 w-6 text-yellow-600 mt-0.5" />
             <div>
@@ -309,7 +297,7 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
 
       {/* Error Display */}
       {matchingError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 md:p-6">
           <div className="flex items-start space-x-3">
             <AlertCircle className="h-6 w-6 text-red-600 mt-0.5" />
             <div>
@@ -325,9 +313,9 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
 
       {/* Filters */}
       {matches.length > 0 && (
-        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+        <div className="bg-white rounded-xl p-4 md:p-6 shadow-lg border border-gray-100">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
               <div className="flex items-center space-x-2">
                 <Filter className="h-5 w-5 text-gray-600" />
                 <span className="font-medium text-gray-900">Filter by Confidence:</span>
@@ -340,11 +328,10 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
                 <option value="all">All Matches</option>
                 <option value="high">High Confidence (85%+)</option>
                 <option value="medium">Medium Confidence (70-84%)</option>
-                <option value="low">Low Confidence {'(<70%)'}</option>
+                <option value="low">Low Confidence (&lt;70%)</option>
               </select>
             </div>
-            
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-600 text-center md:text-right">
               Showing {filteredMatches.length} of {matches.length} matches
             </div>
           </div>
@@ -352,11 +339,9 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
       )}
 
       {/* Matches List */}
-      {matches.length > 0 && (
-        <div className="space-y-4">
+      {filteredMatches.length > 0 && (
+        <div className="space-y-6">
           {filteredMatches.map((match) => {
-            console.log('Match debug', match);
-
             const isBundle = match.is_bundle || match.user1_card_ids?.length > 1 || match.user2_card_ids?.length > 1;
 
             // Robustly derive card IDs for both sides (handles single and bundle trades)
@@ -373,12 +358,10 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
               );
             };
 
-            // --- LOGIC FIX: Determine if current user is user1 or user2, and assign my/their cards accordingly ---
+            // Determine if current user is user1 or user2, and assign my/their cards accordingly
             const currentUserId = user?.id;
             const matchUser1Id = (match as any).user1_id || (match as any).user1?.id;
             const matchUser2Id = (match as any).user2_id || (match as any).user2?.id;
-            const iAmUser1 = currentUserId && matchUser1Id && currentUserId === matchUser1Id;
-            const iAmUser2 = currentUserId && matchUser2Id && currentUserId === matchUser2Id;
 
             // Robustly determine which side is "yours" and which is "theirs" for this match
             let isCurrentUserUser1 = false;
@@ -390,48 +373,52 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
               else if (match.user1_id === user?.id) isCurrentUserUser1 = true;
               else if (match.user2_id === user?.id) isCurrentUserUser1 = false;
             }
+
             // Swap ids and card arrays if current user is user2
             const myIds = isCurrentUserUser1 ? user1Ids : user2Ids;
             const theirIds = isCurrentUserUser1 ? user2Ids : user1Ids;
+
             // Use the correct card arrays for each user
             const user1Cards = Array.isArray((match as any).user1_cards) ? (match as any).user1_cards : [];
             const user2Cards = Array.isArray((match as any).user2_cards) ? (match as any).user2_cards : [];
             const myCardsArr = isCurrentUserUser1 ? user1Cards : user2Cards;
             const theirCardsArr = isCurrentUserUser1 ? user2Cards : user1Cards;
+
             // For single trades, use first card; for bundles, show all
             const myCard = !isBundle ? getCard(myIds[0], isCurrentUserUser1 ? tradeCards : wantCards, myCardsArr) : null;
             const theirCard = !isBundle ? getCard(theirIds[0], isCurrentUserUser1 ? wantCards : tradeCards, theirCardsArr) : null;
+
             // Define otherUser for profile display
             const otherUser = isCurrentUserUser1 ? ((match as any).user2 || null) : ((match as any).user1 || null);
 
-            // --- Proposal-aware logic from Matches.tsx ---
+            // Proposal-aware logic
             const existingProposal = proposals.find(p => p.match_id === match.id);
 
             return (
               <div key={match.id} className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-200">
-                <div className="p-6">
+                <div className="p-4 md:p-6">
                   {/* Header */}
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                     <div className="flex items-center space-x-3">
                       <img
                         src={otherUser?.profile_image_url || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&dpr=2'}
                         alt={otherUser?.username}
-                        className="w-12 h-12 rounded-full object-cover"
+                        className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover"
                       />
                       <div>
-                        <h3 className="font-semibold text-gray-900 text-lg">{otherUser?.username || 'Trader'}</h3>
-                        <div className="flex items-center space-x-2">
+                        <h3 className="font-semibold text-gray-900 text-base md:text-lg">{otherUser?.username || 'Trader'}</h3>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2">
                           <span className="text-sm text-gray-600">
                             {otherUser?.total_trades || 0} trades
                           </span>
-                          <span className="text-gray-400">•</span>
+                          <span className="text-gray-400 hidden sm:inline">•</span>
                           <span className="text-sm text-gray-600">
                             {otherUser?.match_success_rate || 0}% success rate
                           </span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                       <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium border ${getMatchStrengthColor(match.match_score)}`}>
                         {getConfidenceIcon(match.match_score)}
                         <span>{getMatchStrengthLabel(match.match_score)}</span>
@@ -444,7 +431,7 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
                   </div>
 
                   {/* Cards Comparison */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6">
                     {/* Your Card(s) */}
                     <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
                       <h4 className="font-semibold text-blue-900 mb-3 flex items-center space-x-2">
@@ -457,7 +444,7 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
                           <img
                             src={myCard.image_url || 'https://images.pexels.com/photos/7708408/pexels-photo-7708408.jpeg?auto=compress&cs=tinysrgb&w=300&h=400&dpr=2'}
                             alt={myCard.name}
-                            className="w-16 h-20 object-cover rounded-lg shadow-md"
+                            className="w-12 h-16 md:w-16 md:h-20 object-cover rounded-lg shadow-md flex-shrink-0"
                           />
                           <div className="flex-1">
                             <h5 className="font-bold text-gray-900">{myCard.name}</h5>
@@ -477,28 +464,28 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
                         </div>
                       )}
                       {isBundle && (
-                        <div className="flex flex-wrap gap-3">
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:flex md:flex-wrap gap-2 md:gap-3">
                           {myIds.length > 0 ? myIds.map((id: string) => {
                             const card = getCard(id, isCurrentUserUser1 ? tradeCards : wantCards, myCardsArr);
                             if (!card && loadingCards[id]) {
                               return (
-                                <div key={id} className="flex flex-col items-center w-20 animate-pulse">
-                                  <div className="w-16 h-20 bg-gray-200 rounded-lg shadow-md mb-1" />
-                                  <span className="h-4 bg-gray-200 rounded w-16 mb-1" />
-                                  <span className="h-3 bg-gray-100 rounded w-10" />
+                                <div key={id} className="flex flex-col items-center w-16 md:w-20 animate-pulse">
+                                  <div className="w-12 h-16 md:w-16 md:h-20 bg-gray-200 rounded-lg shadow-md mb-1" />
+                                  <span className="h-3 md:h-4 bg-gray-200 rounded w-12 md:w-16 mb-1" />
+                                  <span className="h-2 md:h-3 bg-gray-100 rounded w-8 md:w-10" />
                                 </div>
                               );
                             }
                             if (!card) return <span key={id} className="text-sm text-gray-400">Card unavailable</span>;
                             return (
-                              <div key={card.id} className="flex flex-col items-center w-20">
+                              <div key={card.id} className="flex flex-col items-center w-16 md:w-20">
                                 <img
                                   src={card.image_url || 'https://images.pexels.com/photos/7708408/pexels-photo-7708408.jpeg?auto=compress&cs=tinysrgb&w=300&h=400&dpr=2'}
                                   alt={card.name}
-                                  className="w-16 h-20 object-cover rounded-lg shadow-md mb-1"
+                                  className="w-12 h-16 md:w-16 md:h-20 object-cover rounded-lg shadow-md mb-1"
                                 />
-                                <span className="text-xs font-medium text-gray-900 text-center truncate w-full">{card.name}</span>
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs font-medium text-gray-900 text-center truncate w-full leading-tight">{card.name}</span>
+                                <span className="text-xs text-gray-500 mt-1">
                                   ${(enhancedPricing[card.id]?.price || parseFloat(card.market_price || 0)).toFixed(2)}
                                 </span>
                               </div>
@@ -520,7 +507,7 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
                           <img
                             src={theirCard.image_url || 'https://images.pexels.com/photos/7708408/pexels-photo-7708408.jpeg?auto=compress&cs=tinysrgb&w=300&h=400&dpr=2'}
                             alt={theirCard.name}
-                            className="w-16 h-20 object-cover rounded-lg shadow-md"
+                            className="w-12 h-16 md:w-16 md:h-20 object-cover rounded-lg shadow-md flex-shrink-0"
                           />
                           <div className="flex-1">
                             <h5 className="font-bold text-gray-900">{theirCard.name}</h5>
@@ -540,28 +527,30 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
                         </div>
                       )}
                       {isBundle && (
-                        <div className="flex flex-wrap gap-3">
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:flex md:flex-wrap gap-2 md:gap-3">
                           {theirIds.length > 0 ? theirIds.map((id: string) => {
                             const card = getCard(id, isCurrentUserUser1 ? wantCards : tradeCards, theirCardsArr);
                             if (!card && loadingCards[id]) {
                               return (
-                                <div key={id} className="flex flex-col items-center w-20 animate-pulse">
-                                  <div className="w-16 h-20 bg-gray-200 rounded-lg shadow-md mb-1" />
-                                  <span className="h-4 bg-gray-200 rounded w-16 mb-1" />
-                                  <span className="h-3 bg-gray-100 rounded w-10" />
+                                <div key={id} className="flex flex-col items-center w-16 md:w-20 animate-pulse">
+                                  <div className="w-12 h-16 md:w-16 md:h-20 bg-gray-200 rounded-lg shadow-md mb-1" />
+                                  <span className="h-3 md:h-4 bg-gray-200 rounded w-12 md:w-16 mb-1" />
+                                  <span className="h-2 md:h-3 bg-gray-100 rounded w-8 md:w-10" />
                                 </div>
                               );
                             }
                             if (!card) return <span key={id} className="text-sm text-gray-400">Card unavailable</span>;
                             return (
-                              <div key={card.id} className="flex flex-col items-center w-20">
+                              <div key={card.id} className="flex flex-col items-center w-16 md:w-20">
                                 <img
                                   src={card.image_url || 'https://images.pexels.com/photos/7708408/pexels-photo-7708408.jpeg?auto=compress&cs=tinysrgb&w=300&h=400&dpr=2'}
                                   alt={card.name}
-                                  className="w-16 h-20 object-cover rounded-lg shadow-md mb-1"
+                                  className="w-12 h-16 md:w-16 md:h-20 object-cover rounded-lg shadow-md mb-1"
                                 />
-                                <span className="text-xs font-medium text-gray-900 text-center truncate w-full">{card.name}</span>
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs font-medium text-gray-900 text-center truncate w-full leading-tight">
+                                  {card.name}
+                                </span>
+                                <span className="text-xs text-gray-500 mt-1">
                                   ${(enhancedPricing[card.id]?.price || parseFloat(card.market_price || 0)).toFixed(2)}
                                 </span>
                               </div>
@@ -573,33 +562,38 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
                   </div>
 
                   {/* Match Details */}
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg mb-4">
-                    <div className="grid grid-cols-3 gap-6 flex-1">
+                  <div className="p-4 bg-gray-50 rounded-lg mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
                       <div className="text-center">
                         <div className="text-sm text-gray-600">Match Score</div>
                         <div className="text-lg font-bold text-blue-600">{match.match_score}/100</div>
                       </div>
                       <div className="text-center">
                         <div className="text-sm text-gray-600">Value Difference</div>
-                        <div className="text-lg font-bold text-gray-600">${Math.abs(match.value_difference).toFixed(2)}</div>
+                        <div className="text-lg font-bold text-gray-600">
+                          ${Math.abs(match.value_difference).toFixed(2)}
+                        </div>
                       </div>
                       <div className="text-center">
                         <div className="text-sm text-gray-600">Trade Status</div>
-                        <div className="text-lg font-bold text-green-600 capitalize">{match.status || 'pending'}</div>
+                        <div className="text-lg font-bold text-green-600 capitalize">
+                          {match.status || 'pending'}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2 ml-6">
+                    <div className="flex items-center justify-center space-x-2 mt-3 md:mt-0 md:absolute md:top-4 md:right-4">
                       <TrendingUp className="h-5 w-5 text-blue-500" />
                       <span className="text-sm text-gray-600">AI Recommended</span>
                     </div>
                   </div>
 
                   {/* Action Buttons (proposal-aware) */}
-                  <div className="flex space-x-3 mt-4">
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 mt-4">
                     {existingProposal ? (
-                      <button type="button"
+                      <button
+                        type="button"
                         onClick={() => onTabChange('proposals')}
-                        className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-lg hover:shadow-xl"
+                        className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-lg hover:shadow-xl text-sm md:text-base"
                       >
                         <CheckCircle className="h-5 w-5" />
                         <span className="font-medium">
@@ -614,14 +608,18 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
                       </button>
                     ) : (
                       <>
-                        <button type="button"
+                        <button
+                          type="button"
                           onClick={() => {
                             window.location.hash = '#chat';
                           }}
-                          className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl"
+                          className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl text-sm md:text-base"
                         >
                           <MessageCircle className="h-5 w-5" />
-                          <span className="font-medium">Start Conversation</span>
+                          <span className="font-medium">
+                            <span className="hidden sm:inline">Start Conversation</span>
+                            <span className="sm:hidden">Chat</span>
+                          </span>
                         </button>
                         <TradeProposalButton match={match} />
                       </>
@@ -636,24 +634,23 @@ const Matches: React.FC<MatchesProps> = ({ onTabChange = () => {} }) => {
 
       {/* Empty State */}
       {filteredMatches.length === 0 && !loading && !matchingError && (
-        <div className="text-center py-12">
+        <div className="text-center py-8 md:py-12 px-4">
           <div className="bg-gray-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
             <Zap className="h-10 w-10 text-gray-400" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-2">
             {matches.length === 0 ? 'No matches found' : 'No matches for selected filter'}
           </h3>
-          <p className="text-gray-600 mb-4">
-            {matches.length === 0 
+          <p className="text-sm md:text-base text-gray-600 mb-4">
+            {matches.length === 0
               ? 'Add cards to your trade and want lists, then generate matches'
-              : 'Try adjusting your filter criteria to see more matches'
-            }
+              : 'Try adjusting your filter criteria to see more matches'}
           </p>
           {tradeCards.length > 0 && wantCards.length > 0 && (
-            <button 
+            <button
               onClick={handleGenerateMatches}
               disabled={loading}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+              className="px-4 md:px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 text-sm md:text-base"
             >
               {loading ? 'Generating...' : 'Generate Matches'}
             </button>

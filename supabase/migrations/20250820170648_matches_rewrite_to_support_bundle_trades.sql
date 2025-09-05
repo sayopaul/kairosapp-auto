@@ -68,6 +68,7 @@ DECLARE
   other_card RECORD;
   our_trade_card RECORD;
   their_trade_card RECORD;
+  our_trade_cards RECORD;
   match_score INTEGER;
   value_diff DOUBLE PRECISION;
   matches_created INTEGER := 0;
@@ -157,13 +158,13 @@ BEGIN
         END IF;
       END LOOP;
 
-      -- Then try 1:1 matches if no bundle match was found
-      IF matches_created = 0 THEN
-        FOR their_trade_card IN
+      -- Try 1:1 matches (allow both 1:1 and bundle matches)
+      FOR their_trade_card IN
           SELECT tc.*
           FROM cards tc
           WHERE tc.user_id = other_user.id 
             AND tc.list_type = 'trade'
+            AND tc.id <> new_card.id  -- Skip if it's the same exact card
             AND EXISTS (
               SELECT 1 FROM cards our_wants 
               WHERE our_wants.user_id = new_card.user_id 
@@ -196,7 +197,6 @@ BEGIN
             GET DIAGNOSTICS matches_created = ROW_COUNT;
           END IF;
         END LOOP;
-      END IF;
       
       -- Now try bundle trades (multiple cards for one card)
       target_value := COALESCE(new_card.market_price, 0);
@@ -255,7 +255,123 @@ BEGIN
   END IF;
   
   -- Similar logic for want cards (reversed)
-  -- [Previous logic for want cards goes here, updated similarly]
+  IF new_card.list_type = 'want' THEN
+    -- Find users who have this card for trade
+    FOR other_user IN 
+      SELECT DISTINCT u.* 
+      FROM users u
+      JOIN cards trade_cards ON trade_cards.user_id = u.id
+      WHERE u.id != new_card.user_id 
+        AND trade_cards.list_type = 'trade'
+        AND cards_match(trade_cards.name, new_card.name)
+    LOOP
+      -- First try to find bundle trades where multiple of their cards match our want's value
+      target_value := COALESCE(new_card.market_price, 0);
+
+      -- Find bundles of their trade cards
+      FOR card_combination IN
+        SELECT fc.card_ids AS card_ids, fc.total_value AS total_value
+        FROM find_card_combinations(
+          other_user.id,  -- Look at their trade cards
+          target_value,  -- Target is our want card's value
+          user_tolerance
+        ) fc
+      LOOP
+        -- For each bundle, find our trade cards that match their wants
+        FOR our_trade_cards IN 
+          SELECT array_agg(tc.id) as card_ids, SUM(COALESCE(tc.market_price, 0)) as total_value
+          FROM cards tc
+          WHERE tc.user_id = new_card.user_id
+            AND tc.list_type = 'trade'
+            AND EXISTS (
+              SELECT 1 FROM cards their_wants
+              WHERE their_wants.user_id = other_user.id
+                AND their_wants.list_type = 'want'
+                AND cards_match(their_wants.name, tc.name)
+            )
+          GROUP BY tc.user_id
+        LOOP
+          -- Calculate match score for the bundle trade
+          match_score := calculate_match_score(
+            our_trade_cards.total_value,
+            card_combination.total_value,
+            user_tolerance
+          );
+          
+          IF match_score >= 60 THEN
+            value_diff := ABS(our_trade_cards.total_value - card_combination.total_value);
+            -- is_bundle := TRUE;
+            -- is_bundle := array_length(our_trade_cards.card_ids, 1) > 1;
+            is_bundle := COALESCE(array_length(our_trade_cards.card_ids, 1) > 1, false) OR COALESCE(array_length(card_combination.card_ids, 1) > 1, false);
+            
+            -- Insert the bundle match using only trade cards
+            PERFORM create_match(
+              new_card.user_id,  -- Keep initiating user as user1 for RLS
+              other_user.id,  -- Other user is user2
+              our_trade_cards.card_ids,  -- Our trade cards that match their wants
+              card_combination.card_ids,  -- Their trade cards that match our wants
+              match_score,
+              value_diff,
+              is_bundle
+            );
+            
+            GET DIAGNOSTICS matches_created = ROW_COUNT;
+          END IF;
+        END LOOP;
+      END LOOP;
+
+      -- Then try 1:1 matches if no bundle match was found
+      IF matches_created = 0 THEN
+        -- Get their trade card that matches our want
+        SELECT * INTO their_trade_card
+        FROM cards tc
+        WHERE tc.user_id = other_user.id
+          AND tc.list_type = 'trade'
+          AND cards_match(tc.name, new_card.name)
+        LIMIT 1;
+
+        -- Find our trade cards that match their wants
+        FOR our_trade_cards IN 
+          SELECT array_agg(tc.id) as card_ids, SUM(COALESCE(tc.market_price, 0)) as total_value
+          FROM cards tc
+          WHERE tc.user_id = new_card.user_id
+            AND tc.list_type = 'trade'
+            AND EXISTS (
+              SELECT 1 FROM cards their_wants
+              WHERE their_wants.user_id = other_user.id
+                AND their_wants.list_type = 'want'
+                AND cards_match(their_wants.name, tc.name)
+            )
+          GROUP BY tc.user_id
+        LOOP
+          -- Calculate match score for the trade
+          match_score := calculate_match_score(
+            our_trade_cards.total_value,
+            COALESCE(their_trade_card.market_price, 0),
+            user_tolerance
+          );
+          
+          IF match_score >= 60 THEN
+            value_diff := ABS(our_trade_cards.total_value - COALESCE(their_trade_card.market_price, 0));
+            is_bundle := array_length(our_trade_cards.card_ids, 1) > 1;
+            
+            -- Insert the match using only trade cards
+            PERFORM create_match(
+              new_card.user_id,  -- Keep initiating user as user1 for RLS
+              other_user.id,  -- Other user is user2
+              our_trade_cards.card_ids,  -- Our trade cards that match their wants
+              ARRAY[their_trade_card.id],  -- Their trade card that matches our want
+              match_score,
+              value_diff,
+              FALSE
+            );
+            
+            GET DIAGNOSTICS matches_created = ROW_COUNT;
+          END IF;
+        END LOOP;
+      END IF;
+    END LOOP;
+  END IF;
   
   RETURN matches_created;
 END;

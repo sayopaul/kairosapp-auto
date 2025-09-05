@@ -12,7 +12,7 @@ export function useAuth() {
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
-        console.warn('Session error during refetch:', error.message);
+        console.log('Session invalidated during refetch - this is expected when tokens expire:', error.message);
         setUser(null);
       } else {
         setUser(session?.user ?? null);
@@ -34,7 +34,7 @@ export function useAuth() {
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.warn('Session error:', error.message);
+          console.log('Session invalidated - this is expected when tokens expire:', error.message);
           
           // Check for refresh token errors and clear localStorage
           if (error.message.includes('Invalid Refresh Token')) {

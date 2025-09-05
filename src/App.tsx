@@ -59,10 +59,11 @@ function AppContent() {
           {/* Trade proposal notifications */}
           <TradeProposalNotification />
           
-          {/* Footer with Branding */}
+          {/* Footer with Branding and Legal Links */}
           <footer className="bg-white border-t border-gray-200 mt-16">
             <div className="max-w-7xl mx-auto px-4 py-8">
               <div className="flex flex-col md:flex-row items-center justify-between">
+                {/* Left Side: Logo and Tagline */}
                 <div className="flex items-center space-x-4 mb-4 md:mb-0">
                   <img 
                     src="/logo.png" 
@@ -73,8 +74,27 @@ function AppContent() {
                     <span className="font-medium">Your Collection. Your Rules. Our System.</span>
                   </div>
                 </div>
-                <div className="text-sm text-gray-400">
-                  © 2024 AutoTradeTCG. All rights reserved.
+                {/* Right Side: Copyright and Links */}
+                <div className="flex flex-col md:items-end text-sm text-gray-400 space-y-1 md:space-y-0 md:space-x-4 md:flex-row">
+                  <div>© 2024 AutoTradeTCG. All rights reserved.</div>
+                  <div className="flex space-x-4">
+                    <a
+                      href="https://autotradetcg.github.io/AutoTradeTCG-Pages/support"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-blue-500 underline"
+                    > 
+                      Support
+                    </a>
+                    <a
+                      href="https://autotradetcg.github.io/AutoTradeTCG-Pages/privacy-policy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-blue-500 underline"
+                    >
+                      Privacy Policy
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>

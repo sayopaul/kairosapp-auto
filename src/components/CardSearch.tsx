@@ -72,12 +72,76 @@ const CardSearch: React.FC<CardSearchProps> = ({
   };
 
   const formatSearchQuery = (input: string): string => {
-    const [name = '', set = '', condition = ''] = input.split(',').map(item => item.trim());
-    const parts = [];
-    if (name) parts.push(`name:"${name}"`);
-    if (set) parts.push(`set:"${set}"`);
-    if (condition) parts.push(`condition:"${condition}"`);
-    return parts.join(' ');
+    // Normalize input by removing extra spaces and converting to lowercase
+    const normalizedInput = input.trim().toLowerCase();
+    
+    // Split by comma and clean up each part
+    const parts = normalizedInput.split(',').map(part => part.trim()).filter(part => part.length > 0);
+    
+    // If no comma, treat as a single search term (could be name or "name set")
+    if (parts.length === 1) {
+      const singleTerm = parts[0];
+      
+      // Check if it contains common set names
+      const commonSets = [
+        'base set', 'jungle', 'fossil', 'team rocket', 'gym heroes', 'gym challenge',
+        'neo genesis', 'neo discovery', 'neo destiny', 'neo revelation',
+        'expedition', 'aquapolis', 'skyridge', 'ruby sapphire', 'sandstorm',
+        'dragon', 'team magma', 'team aqua', 'hidden legends', 'firered leafgreen',
+        'team rocket returns', 'deoxys', 'emerald', 'unseen forces', 'delta species',
+        'legend maker', 'holon phantoms', 'crystal guardians', 'dragon frontiers',
+        'power keepers', 'diamond pearl', 'mysterious treasures', 'secret wonders',
+        'great encounters', 'majestic dawn', 'legends awakened', 'stormfront',
+        'platinum', 'rising rivals', 'supreme victors', 'arceus', 'heartgold soulsilver',
+        'unleashed', 'undaunted', 'triumphant', 'call of legends', 'black white',
+        'emerging powers', 'noble victories', 'next destinies', 'dark explorers',
+        'dragons exalted', 'boundaries crossed', 'plasma storm', 'plasma freeze',
+        'plasma blast', 'legendary treasures', 'xy', 'flashfire', 'furious fists',
+        'phantom forces', 'primal clash', 'roaring skies', 'ancient origins',
+        'breakthrough', 'breakpoint', 'generations', 'fates collide', 'steam siege',
+        'evolutions', 'sun moon', 'guardians rising', 'burning shadows',
+        'shining legends', 'crimson invasion', 'ultra prism', 'forbidden light',
+        'celestial storm', 'dragon majesty', 'lost thunder', 'team up',
+        'detective pikachu', 'unbroken bonds', 'unified minds', 'hidden fates',
+        'cosmic eclipse', 'sword shield', 'rebel clash', 'darkness ablaze',
+        'champions path', 'vivid voltage', 'shining fates', 'battle styles',
+        'chilling reign', 'evolving skies', 'celebrations', 'fusion strike',
+        'brilliant stars', 'astral radiance', 'pokemon go', 'lost origin',
+        'silver tempest', 'crown zenith', 'paldea evolved', 'obsidian flames',
+        'paradox rift', 'paldean fates', 'temporal forces', 'twilight masquerade',
+        'shrouded fable', 'stellar crown', 'surging sparks'
+      ];
+      
+      // Try to extract set name from the single term
+      let extractedName = singleTerm;
+      let extractedSet = '';
+      
+      for (const setName of commonSets) {
+        if (singleTerm.includes(setName)) {
+          // Found a set name in the input
+          extractedSet = setName;
+          extractedName = singleTerm.replace(setName, '').trim();
+          break;
+        }
+      }
+      
+      // Build query parts
+      const queryParts = [];
+      if (extractedName) queryParts.push(`name:"${extractedName}"`);
+      if (extractedSet) queryParts.push(`set:"${extractedSet}"`);
+      
+      return queryParts.join(' ');
+    }
+    
+    // Multiple parts separated by commas
+    const [name = '', set = '', condition = ''] = parts;
+    const queryParts = [];
+    
+    if (name) queryParts.push(`name:"${name}"`);
+    if (set) queryParts.push(`set:"${set}"`);
+    if (condition) queryParts.push(`condition:"${condition}"`);
+    
+    return queryParts.join(' ');
   };
 
   const getSuggestions = async (searchQuery: string) => {

@@ -26,9 +26,9 @@ const Collection: React.FC = () => {
   const handleUpdateAllPrices = async () => {
     setUpdatingPrices(true);
     try {
-      console.log('🔄 Updating prices for all cards using JustTCG API...');
-      const pricingResults = await JustTcgApiService.batchUpdatePricing(cards);
-      console.log('✅ Updated pricing for', pricingResults.size, 'cards');
+      // console.log('🔄 Updating prices for all cards using JustTCG API...');
+      // const pricingResults = await JustTcgApiService.batchUpdatePricing(cards);
+      // console.log('✅ Updated pricing for', pricingResults.size, 'cards');
       
       // Trigger a re-render by updating a state
       // In a real app, you'd update the cards in your state/database
