@@ -203,6 +203,12 @@ const Profile: React.FC = () => {
 
   const isValidImageUrl = (url: string): boolean => {
     try {
+      // Check if it's a base64 data URL
+      if (url.startsWith("data:image/")) {
+        return true;
+      }
+
+      // Check if it's a regular URL with image extension
       new URL(url);
       return /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url);
     } catch {
