@@ -196,6 +196,7 @@ const Profile: React.FC = () => {
       };
       reader.readAsDataURL(file);
     } catch (error) {
+      console.error("Failed to upload image:", error);
       setProfilePictureError('Failed to upload image');
       setUploadingFile(false);
     }
